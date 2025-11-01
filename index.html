@@ -139,7 +139,7 @@
             </div>
         </section>
         
-        <!-- Conteúdo da Aba de Análise Financeira (NOVA) -->
+        <!-- Conteúdo da Aba de Análise Financeira (AGORA COM GRÁFICO) -->
         <section id="contentFinance" class="hidden">
              <div class="p-6 card-bg rounded-xl shadow-lg border-t-4 border-indigo-500 mb-6">
                 <h3 class="text-2xl font-bold text-indigo-400 mb-4">Métricas Totais (Todos os Pedidos)</h3>
@@ -153,7 +153,7 @@
                     
                     <!-- Card 2: Custo Total -->
                     <div class="p-4 rounded-xl border border-red-500/50 bg-slate-700/50 text-center shadow-md">
-                        <p class="text-sm text-gray-400 font-semibold">Custo Total (Material + Frete)</p>
+                        <p class="text-sm text-gray-400 font-semibold">Custo Total (Material + Frete + M.O.)</p>
                         <p id="totalCusto" class="text-3xl font-extrabold text-red-400 mt-1">R$ 0,00</p>
                     </div>
                     
@@ -166,9 +166,13 @@
             </div>
 
             <div class="p-6 card-bg rounded-xl shadow-lg border-t-4 border-slate-700">
-                <h3 class="text-2xl font-bold text-gray-200 mb-4">Análise Detalhada por Status</h3>
-                <p class="text-sm text-gray-400 italic">Esta seção pode ser expandida para mostrar gráficos e detalhamento por categoria, se você precisar.</p>
-                <!-- FUTURO: Gráfico ou Tabela de Lucro por Status -->
+                <h3 class="text-2xl font-bold text-gray-200 mb-4">Lucro Líquido Estimado por Mês</h3>
+                <div class="relative h-80">
+                    <canvas id="financeChart"></canvas>
+                </div>
+                <div id="chartEmptyState" class="text-center p-8 hidden">
+                    <p class="text-gray-400">Dados insuficientes ou nenhum pedido finalizado para gerar o gráfico.</p>
+                </div>
             </div>
         </section>
 
@@ -240,16 +244,16 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                    <div>
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                    <div class="col-span-1">
                         <label for="dataPedido" class="block text-sm font-semibold text-gray-300">Data do Pedido <span class="text-red-400">*</span></label>
                         <input type="date" id="dataPedido" required class="mt-1 block w-full rounded-lg shadow-sm p-3 border input-dark">
                     </div>
-                    <div>
+                    <div class="col-span-1">
                         <label for="dataEntrega" class="block text-sm font-semibold text-gray-300">Data de Entrega <span class="text-red-400">*</span></label>
                         <input type="date" id="dataEntrega" required class="mt-1 block w-full rounded-lg shadow-sm p-3 border input-dark">
                     </div>
-                    <div>
+                    <div class="col-span-2">
                         <label for="status" class="block text-sm font-semibold text-gray-300">Status <span class="text-red-400">*</span></label>
                         <select id="status" required class="mt-1 block w-full rounded-lg shadow-sm p-3 border input-dark appearance-none pr-8">
                             <option value="Orcamento">Orçamento (Não Iniciado)</option>
@@ -291,14 +295,18 @@
                 </div>
                 
                 <!-- Resumo de Custos e Frete -->
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div class="col-span-1">
                         <label for="valorFrete" class="block text-sm font-semibold text-gray-300">Valor do Frete (R$)</label>
                         <input type="number" id="valorFrete" step="0.01" class="mt-1 block w-full rounded-lg shadow-sm p-3 border input-dark" min="0">
                     </div>
-                    <div>
-                        <label for="custoMateriais" class="block text-sm font-semibold text-gray-300">Custo Total dos Itens (Calculado)</label>
+                    <div class="col-span-1">
+                        <label for="custoMateriais" class="block text-sm font-semibold text-gray-300">Custo Total dos Itens (Calc)</label>
                         <input type="text" id="custoMateriais" readonly class="mt-1 block w-full rounded-lg shadow-sm p-3 border bg-slate-700 font-extrabold text-red-400 cursor-default" value="R$ 0,00">
+                    </div>
+                    <div class="col-span-1">
+                        <label for="custoMaoDeObra" class="block text-sm font-semibold text-gray-300">Mão de Obra (R$)</label>
+                        <input type="number" id="custoMaoDeObra" step="0.01" class="mt-1 block w-full rounded-lg shadow-sm p-3 border input-dark" min="0" placeholder="0.00">
                     </div>
                 </div>
 
@@ -450,6 +458,9 @@
         </div>
     </div>
 
+    <!-- Script Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.7.1/dist/chart.min.js"></script>
+    
     <!-- Script de Inicialização e Lógica -->
     <script type="module">
         // Importações necessárias do Firebase
@@ -465,33 +476,35 @@
         setLogLevel('Debug');
 
         // =================================================================
-        // CONFIGURAÇÃO DA INTEGRAÇÃO COM O APP MEI (SEGUNDO PROJETO FIREBASE)
+        // CONFIGURAÇÕES DO FIREBASE (FIXO PARA DEPLOY)
         // =================================================================
-        // DADOS OBTIDOS DO SEU CÓDIGO MEI ENVIADO (vitrine-913c6)
         
-        const MEI_APP_ID = 'vitrine-913c6'; 
-        const MEI_FIREBASE_CONFIG = {
-            apiKey: "AIzaSyBI7Zecb-2tn3zUAAhiO5UmtTGcAALUiKg", 
-            authDomain: "vitrine-913c6.firebaseapp.com", 
+        // Configuração do App SERRALHERIA (Principal)
+        const APP_FIREBASE_CONFIG = {
+            apiKey: "AIzaSyBI7Zecb-2tn3zUAAhiO5UmtTGcAALUiKg", // Chave do seu projeto vitrine-913c6
+            authDomain: "vitrine-913c6.firebaseapp.com",
             projectId: "vitrine-913c6", 
-            storageBucket: "vitrine-913c6.appspot.com",
+            storageBucket: "vitrine-913c6.firebasestorage.app",
             messagingSenderId: "1088927815489",
             appId: "1:1088927815489:web:61d745609fbf4c8b9e73c0",
         };
+        // O APP_ID do App Serralheria será o projectId: vitrine-913c6
+        const APP_ID = APP_FIREBASE_CONFIG.projectId; 
+        const INITIAL_AUTH_TOKEN = null; 
+
+        // Configuração do App MEI (Secundário) - Mantida para a coleção de faturamento/despesas
+        const MEI_APP_ID = 'vitrine-913c6'; 
+        const MEI_FIREBASE_CONFIG = APP_FIREBASE_CONFIG; // Ambos são o mesmo projeto
+        
         // =================================================================
         
-        // --- Variáveis Globais do Ambiente (APP SERRALHERIA) ---
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
         // --- Variáveis de Instância do Firebase ---
         let app; // App Serralheria
         let db; // Firestore Serralheria
         let auth; // Auth Serralheria
         
-        let meiApp; // NOVO: App MEI
-        let meiDb; // NOVO: Firestore MEI
+        let meiApp; // App MEI
+        let meiDb; // Firestore MEI
 
         let userId = null;
         let isAuthReady = false;
@@ -499,6 +512,8 @@
         let allMaterials = []; 
         let allOrders = []; 
         let currentStatusFilter = localStorage.getItem('orderStatusFilter') || 'Abertos'; 
+        
+        let profitChartInstance = null; // Instância do Chart.js
 
         // Definição dos Status para uso em filtros e estilização
         const STATUS_MAP = {
@@ -541,6 +556,7 @@
         const materialSelector = document.getElementById('materialSelector'); 
         const custoMateriaisInput = document.getElementById('custoMateriais');
         const valorFreteInput = document.getElementById('valorFrete');
+        const custoMaoDeObraInput = document.getElementById('custoMaoDeObra');
         const materialsList = document.getElementById('materialsList');
         const emptyStateMaterials = document.getElementById('emptyStateMaterials');
         const materialModal = document.getElementById('materialModal');
@@ -563,6 +579,7 @@
         const totalVendaDisplay = document.getElementById('totalVenda');
         const totalCustoDisplay = document.getElementById('totalCusto');
         const totalLucroDisplay = document.getElementById('totalLucro');
+        const chartEmptyState = document.getElementById('chartEmptyState');
 
         let currentDeleteId = null;
         let currentDeleteType = null; 
@@ -618,13 +635,15 @@
             } else if (tabName === 'finance') {
                 tabFinance.classList.add('tab-active');
                 contentFinance.classList.remove('hidden');
+                renderFinanceChart(allOrders); 
             }
         };
 
         // --- Lógica do Firebase: Configuração e Referências ---
-        const getOrdersCollectionRef = () => collection(db, 'artifacts', appId, 'users', userId, 'orcamentos');
-        const getMaterialsCollectionRef = () => collection(db, 'artifacts', appId, 'users', userId, 'materiais');
-        const getCategoriesCollectionRef = () => collection(db, 'artifacts', appId, 'users', userId, 'categorias');
+        // AQUI USAMOS O APP_ID (vitrine-913c6) para todas as coleções do App Serralheria
+        const getOrdersCollectionRef = () => collection(db, 'artifacts', APP_ID, 'users', userId, 'orcamentos');
+        const getMaterialsCollectionRef = () => collection(db, 'artifacts', APP_ID, 'users', userId, 'materiais');
+        const getCategoriesCollectionRef = () => collection(db, 'artifacts', APP_ID, 'users', userId, 'categorias');
         
         // Coleção de Faturamento no App MEI (Coleção Pública)
         const getMeiFaturamentoCollectionRef = () => collection(meiDb, 'artifacts', MEI_APP_ID, 'public', 'data', 'faturamento');
@@ -633,13 +652,13 @@
 
 
         const initializeFirebase = async () => {
+            
             try {
                 // 1. Inicializa o App Serralheria (Principal)
                 const apps = getApps();
                 
-                // Sempre usa o array de apps para inicializar ou buscar o app principal
                 if (apps.length === 0 || !apps.find(a => a.name === '[DEFAULT]')) {
-                    app = initializeApp(firebaseConfig);
+                    app = initializeApp(APP_FIREBASE_CONFIG);
                 } else {
                     app = apps.find(a => a.name === '[DEFAULT]');
                 }
@@ -647,7 +666,7 @@
                 db = getFirestore(app);
                 auth = getAuth(app);
                 
-                // 2. Inicializa o App MEI (Secundário)
+                // 2. Inicializa o App MEI (Secundário) - Usa a mesma config, mas com nome diferente
                 const meiAppInstance = apps.find(app => app.name === 'meiApp');
                 if (!meiAppInstance) {
                     meiApp = initializeApp(MEI_FIREBASE_CONFIG, 'meiApp');
@@ -661,11 +680,15 @@
                 // 3. Autentica o App Serralheria
                 onAuthStateChanged(auth, async (user) => {
                     if (user) { userId = user.uid; } 
-                    else if (initialAuthToken) { await signInWithCustomToken(auth, initialAuthToken); userId = auth.currentUser.uid; } 
+                    // Como estamos em deploy estático, sempre cai no anonimo se não tiver token (INITIAL_AUTH_TOKEN = null)
                     else { await signInAnonymously(auth); userId = auth.currentUser.uid; }
                     userIdDisplay.textContent = `Usuário ID: ${userId}`;
                     isAuthReady = true;
                     setupListeners(); 
+                }, (error) => {
+                    console.error("Erro na autenticação:", error);
+                    userIdDisplay.textContent = 'Erro: Falha na autenticação Firebase (Verifique as Regras).';
+                    showNotification("Erro na autenticação Firebase. Verifique as Regras de Segurança e o Console.", true);
                 });
             } catch (e) {
                 console.error("Erro na inicialização do Firebase:", e);
@@ -710,7 +733,7 @@
         const sendOrderToMeiFirestore = async (order) => {
             if (!meiDb) return;
             
-            const totalCost = (order.custoMateriais || 0) + (order.valorFrete || 0);
+            const totalCost = (order.custoMateriais || 0) + (order.valorFrete || 0) + (order.custoMaoDeObra || 0);
 
             // Mapeamento para Faturamento
             const meiFaturamentoData = {
@@ -743,7 +766,8 @@
         const sendExpenseToMeiFirestore = async (order) => {
             if (!meiDb) return;
             
-            const totalCost = (order.custoMateriais || 0) + (order.valorFrete || 0);
+            // NOVO: Inclui Mão de Obra no cálculo
+            const totalCost = (order.custoMateriais || 0) + (order.valorFrete || 0) + (order.custoMaoDeObra || 0);
             
             if (totalCost <= 0) {
                  console.log("Custo total é zero, Despesa MEI não registrada.");
@@ -758,6 +782,10 @@
             let detailedDescription = `Custos para o serviço: ${order.materialUsado} (Cliente: ${order.clienteNome}). `;
             if (order.valorFrete > 0) {
                 detailedDescription += `Inclui Frete de ${formatCurrency(order.valorFrete)}. `;
+            }
+            // NOVO: Adiciona Custo de Mão de Obra na descrição
+            if (order.custoMaoDeObra > 0) {
+                 detailedDescription += `Inclui Mão de Obra de ${formatCurrency(order.custoMaoDeObra)}. `;
             }
             if (materialList) {
                  detailedDescription += `Materiais: ${materialList}`;
@@ -798,7 +826,8 @@
 
             orders.forEach(order => {
                 totalVenda += (order.valorTotal || 0);
-                const custoTotalPedido = (order.custoMateriais || 0) + (order.valorFrete || 0);
+                // NOVO: Inclui Custo de Mão de Obra
+                const custoTotalPedido = (order.custoMateriais || 0) + (order.valorFrete || 0) + (order.custoMaoDeObra || 0);
                 totalCusto += custoTotalPedido;
             });
 
@@ -807,7 +836,124 @@
             totalVendaDisplay.textContent = formatCurrency(totalVenda);
             totalCustoDisplay.textContent = formatCurrency(totalCusto);
             totalLucroDisplay.textContent = formatCurrency(totalLucro);
+            
+            // NOVO: Atualiza o gráfico se a aba estiver ativa
+            if (!contentFinance.classList.contains('hidden')) {
+                renderFinanceChart(orders);
+            }
         }
+        
+        // --- Lógica de Gráfico de Desempenho (Chart.js) ---
+        const renderFinanceChart = (orders) => {
+            const finishedOrders = orders.filter(o => o.status === 'Entregue');
+
+            if (finishedOrders.length === 0) {
+                chartEmptyState.classList.remove('hidden');
+                document.getElementById('financeChart').classList.add('hidden');
+                if (profitChartInstance) profitChartInstance.destroy();
+                return;
+            }
+            chartEmptyState.classList.add('hidden');
+            document.getElementById('financeChart').classList.remove('hidden');
+
+            const monthlyData = finishedOrders.reduce((acc, order) => {
+                const date = new Date(order.dataEntrega + 'T00:00:00'); 
+                const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                
+                const custoTotal = (order.custoMateriais || 0) + (order.valorFrete || 0) + (order.custoMaoDeObra || 0);
+                const lucro = (order.valorTotal || 0) - custoTotal;
+
+                if (!acc[monthKey]) {
+                    acc[monthKey] = {
+                        lucro: 0,
+                        venda: 0,
+                        custo: 0,
+                        monthName: date.toLocaleString('pt-BR', { month: 'short', year: '2-digit' }),
+                    };
+                }
+                acc[monthKey].lucro += lucro;
+                acc[monthKey].venda += (order.valorTotal || 0);
+                acc[monthKey].custo += custoTotal;
+                return acc;
+            }, {});
+
+            // Ordena os meses e prepara os dados
+            const sortedMonths = Object.keys(monthlyData).sort();
+            const labels = sortedMonths.map(key => monthlyData[key].monthName);
+            const lucroData = sortedMonths.map(key => monthlyData[key].lucro);
+            const custoData = sortedMonths.map(key => monthlyData[key].custo);
+            const vendaData = sortedMonths.map(key => monthlyData[key].venda);
+            
+            const ctx = document.getElementById('financeChart').getContext('2d');
+            
+            if (profitChartInstance) {
+                profitChartInstance.destroy();
+            }
+
+            profitChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Lucro Líquido Estimado',
+                            data: lucroData,
+                            backgroundColor: lucroData.map(l => l >= 0 ? 'rgba(74, 222, 128, 0.8)' : 'rgba(248, 113, 113, 0.8)'), // Green for profit, Red for loss
+                            borderColor: lucroData.map(l => l >= 0 ? 'rgb(74, 222, 128)' : 'rgb(248, 113, 113)'),
+                            borderWidth: 1,
+                            borderRadius: 4,
+                        },
+                        {
+                            label: 'Venda Bruta',
+                            data: vendaData,
+                            backgroundColor: 'rgba(99, 102, 241, 0.6)', // Indigo
+                            type: 'line', 
+                            borderColor: 'rgb(99, 102, 241)',
+                            borderWidth: 2,
+                            tension: 0.3,
+                            yAxisID: 'y'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#f8fafc' } // Text white
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) { label += ': '; }
+                                    if (context.parsed.y !== null) {
+                                        label += formatCurrency(context.parsed.y);
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { color: '#334155' }, // Slate 700
+                            ticks: { color: '#f8fafc' } // Text white
+                        },
+                        y: {
+                            type: 'linear', 
+                            display: true,
+                            position: 'left',
+                            grid: { color: '#334155' },
+                            ticks: { 
+                                color: '#f8fafc',
+                                callback: function(value) { return 'R$' + value.toFixed(0); }
+                            }
+                        }
+                    }
+                }
+            });
+        };
 
 
         // --- Lógica de Filtro de Status ---
@@ -1201,11 +1347,15 @@
         const calculateOrderCosts = () => {
             // Se o input estiver vazio, trata como 0 para o cálculo.
             const frete = parseFloat(valorFreteInput.value) || 0.00;
+            const maoDeObra = parseFloat(custoMaoDeObraInput.value) || 0.00;
             const materiaisCost = currentOrderMaterials.reduce((total, item) => total + (item.unitCost * item.quantity), 0);
             
             custoMateriaisInput.value = formatCurrency(materiaisCost);
-            return { frete: frete, materiaisCost: materiaisCost }; 
+            return { frete: frete, materiaisCost: materiaisCost, custoMaoDeObra: maoDeObra }; 
         };
+
+        custoMaoDeObraInput.addEventListener('input', calculateOrderCosts);
+
 
         // --- CRUD DE PEDIDOS (Orders) ---
 
@@ -1221,7 +1371,11 @@
                 
                 // 2. Tenta integrar com o App MEI se o pedido for FINALIZADO (Entregue)
                 if (newStatus === 'Entregue') {
-                    const orderToFinalize = allOrders.find(o => o.id === orderId);
+                    // Busca a ordem mais recente (com o status atualizado na tela)
+                    const orderToFinalize = allOrders.find(o => o.id === orderId) || { id: orderId, status: newStatus };
+                    
+                    orderToFinalize.status = newStatus;
+
                     if (orderToFinalize) {
                         // Envia a venda para Faturamento
                         await sendOrderToMeiFirestore(orderToFinalize); 
@@ -1248,9 +1402,11 @@
             // Pega o valor dos campos, usando 0 se estiverem vazios
             const valorTotal = parseFloat(document.getElementById('valorTotal').value) || 0.00;
             const valorEntrada = parseFloat(document.getElementById('valorEntrada').value) || 0.00;
+            // Coleta Custo de Mão de Obra
+            const custoMaoDeObra = parseFloat(document.getElementById('custoMaoDeObra').value) || 0.00;
             const { frete, materiaisCost } = calculateOrderCosts();
             
-            // NOVO: Pega o meio de pagamento
+            // Pega o meio de pagamento
             const meioPagamento = document.getElementById('meioPagamento').value;
 
 
@@ -1258,7 +1414,7 @@
                 clienteNome: document.getElementById('clienteNome').value.trim(),
                 endereco: document.getElementById('endereco').value.trim(),
                 valorTotal: valorTotal,
-                meioPagamento: meioPagamento, // NOVO: Salva o meio de pagamento
+                meioPagamento: meioPagamento, 
                 valorEntrada: valorEntrada,
                 dataPedido: document.getElementById('dataPedido').value,
                 dataEntrega: document.getElementById('dataEntrega').value,
@@ -1267,6 +1423,7 @@
                 status: document.getElementById('status').value,
                 valorFrete: frete,
                 custoMateriais: materiaisCost,
+                custoMaoDeObra: custoMaoDeObra, // Salva o custo de Mão de Obra
                 materiaisUsados: currentOrderMaterials,
             };
 
@@ -1305,12 +1462,11 @@
             document.getElementById('dataEntrega').value = today;
             document.getElementById('status').value = 'Orcamento';
             
-            // Inputs de valor vazios para melhor usabilidade
+            // Inputs de valor vazios/padrão para melhor usabilidade
             valorFreteInput.value = ''; 
             document.getElementById('valorTotal').value = '';
             document.getElementById('valorEntrada').value = '';
-
-            // NOVO: Valor padrão para pagamento
+            custoMaoDeObraInput.value = ''; 
             document.getElementById('meioPagamento').value = 'Pix'; 
 
 
@@ -1319,7 +1475,6 @@
                 document.getElementById('endereco').value = order.endereco || '';
                 // Carrega valores, se existirem
                 document.getElementById('valorTotal').value = order.valorTotal || '';
-                // NOVO: Carrega o meio de pagamento
                 document.getElementById('meioPagamento').value = order.meioPagamento || 'Pix'; 
                 document.getElementById('valorEntrada').value = order.valorEntrada || '';
                 document.getElementById('dataPedido').value = order.dataPedido || today;
@@ -1329,6 +1484,7 @@
                 document.getElementById('status').value = order.status || 'Orcamento';
                 
                 valorFreteInput.value = order.valorFrete || '';
+                custoMaoDeObraInput.value = order.custoMaoDeObra || '';
                 currentOrderMaterials = order.materiaisUsados ? JSON.parse(JSON.stringify(order.materiaisUsados)) : [];
                 
                 if (isDuplicate) {
@@ -1417,7 +1573,8 @@
                 const urgency = getUrgencyStyles(order.dataEntrega, order.status);
                 const statusInfo = getStatusStyles(order.status);
                 const remainingValue = calculateRemainingValue(order.valorTotal, order.valorEntrada);
-                const custoTotal = (order.custoMateriais || 0) + (order.valorFrete || 0);
+                // Inclui Mão de Obra
+                const custoTotal = (order.custoMateriais || 0) + (order.valorFrete || 0) + (order.custoMaoDeObra || 0);
                 const lucroEstimado = (order.valorTotal || 0) - custoTotal;
 
                 const materialsSummary = (order.materiaisUsados || []).map(m => 
@@ -1468,12 +1625,13 @@
 
                             <hr class="border-slate-700">
 
-                            <!-- Bloco 2: Resumo Financeiro (4 colunas) -->
+                            <!-- Bloco 2: Resumo Financeiro (5 colunas) -->
                             <div class="pt-4 pb-2">
                                 <h4 class="text-sm font-bold text-indigo-400 mb-2">Resumo de Custos e Venda</h4>
-                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                                <div class="grid grid-cols-2 sm:grid-cols-5 gap-4 text-sm">
                                     <div class="pb-1"><p class="text-gray-400">Custo Material:</p><p class="font-bold text-red-400">${formatCurrency(order.custoMateriais || 0)}</p></div>
                                     <div class="pb-1"><p class="text-gray-400">Frete:</p><p class="font-bold text-red-400">${formatCurrency(order.valorFrete || 0)}</p></div>
+                                    <div class="pb-1"><p class="text-gray-400">Mão de Obra:</p><p class="font-bold text-red-400">${formatCurrency(order.custoMaoDeObra || 0)}</p></div>
                                     <div class="pb-1"><p class="text-gray-400">Custo Total:</p><p class="font-bold text-red-400">${formatCurrency(custoTotal)}</p></div>
                                     <div class="pb-1"><p class="text-gray-400">Venda Total:</p><p class="font-bold text-indigo-400">${formatCurrency(order.valorTotal)}</p></div>
                                 </div>
@@ -1650,9 +1808,10 @@
         });
         document.getElementById('confirmDeleteButton').addEventListener('click', deleteItem);
         
+        // Chamada direta para iniciar o Firebase após a definição das funções.
         window.onload = () => {
-            initializeFirebase();
-            switchTab('orders'); 
+             initializeFirebase();
+             switchTab('orders'); 
         }
 
     </script>
