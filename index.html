@@ -74,6 +74,29 @@
         .filter-active:hover {
             background-color: #4f46e5; /* indigo-600 */
         }
+        /* Estilos de transição para o corpo colapsável */
+        .collapsible-body {
+            transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+            max-height: 0;
+            overflow: hidden;
+            padding-top: 0;
+            padding-bottom: 0;
+        }
+        .collapsible-body[data-expanded="true"] {
+             max-height: 1000px; /* Valor grande para garantir que o conteúdo caiba */
+             padding-top: 1rem;
+             padding-bottom: 1rem;
+        }
+        /* Estilo para o select multiple no modal de pedidos */
+        #materialSelector {
+             /* Permite a seleção multi-touch em mobile e visualiza a lista */
+            height: auto;
+            max-height: 12rem; /* 48 = 12rem */
+        }
+        #materialSelector option:checked {
+            background-color: #4f46e5; /* indigo-600 */
+            color: #f8fafc;
+        }
     </style>
 </head>
 <body class="min-h-screen">
@@ -147,13 +170,13 @@
                 <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
                     <!-- Card 1: Venda Total -->
                     <div class="p-4 rounded-xl border border-green-500/50 bg-slate-700/50 text-center shadow-md">
-                        <p class="text-sm text-gray-400 font-semibold">Venda Bruta Total</p>
+                        <p class="text-sm text-gray-400 font-semibold">Venda Final Total</p>
                         <p id="totalVenda" class="text-3xl font-extrabold text-green-400 mt-1">R$ 0,00</p>
                     </div>
                     
                     <!-- Card 2: Custo Total -->
                     <div class="p-4 rounded-xl border border-red-500/50 bg-slate-700/50 text-center shadow-md">
-                        <p class="text-sm text-gray-400 font-semibold">Custo Total (Material + Frete + M.O.)</p>
+                        <p class="text-sm text-gray-400 font-semibold">Custo Total (Incluindo Adicional)</p>
                         <p id="totalCusto" class="text-3xl font-extrabold text-red-400 mt-1">R$ 0,00</p>
                     </div>
                     
@@ -180,6 +203,11 @@
         <!-- Conteúdo da Aba de Materiais -->
         <section id="contentMaterials" class="hidden">
             
+            <!-- Pesquisa de Materiais -->
+            <div class="mb-6">
+                <input type="text" id="materialSearch" placeholder="Buscar por Categoria ou Item..." class="w-full rounded-full shadow-lg p-3 input-dark border-2 border-slate-700 focus:border-indigo-500 placeholder-slate-400">
+            </div>
+
             <!-- Layout em duas colunas para Categorias e Itens -->
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
@@ -204,6 +232,7 @@
                             Novo Item
                         </button>
                     </div>
+                    <!-- A lista agora contém os painéis expansíveis -->
                     <div id="materialsList" class="space-y-4 scrollable-content max-h-96 overflow-y-auto">
                         <div id="emptyStateMaterials" class="text-center p-8 bg-slate-700 rounded-lg shadow-inner hidden">
                             <p class="text-sm text-gray-300">Nenhum item cadastrado. Crie Categorias antes de adicionar itens.</p>
@@ -276,12 +305,13 @@
                 <!-- CUSTOS E MATERIAIS (Seção Crítica) -->
                 <h3 class="text-xl font-bold text-gray-200 pt-3 border-t border-slate-700">2. Detalhamento de Custos</h3>
 
-                <!-- Seleção e Lista de Itens -->
+                <!-- Seleção e Lista de Itens (AGORA MULTI-SELECT) -->
                 <div class="border border-slate-700 p-4 rounded-xl bg-slate-700/50">
-                    <label class="block text-sm font-semibold text-gray-300 mb-2">Adicionar Item/Subcategoria:</label>
+                    <label class="block text-sm font-semibold text-gray-300 mb-2">Adicionar Item/Subcategoria (Selecione Vários):</label>
                     <div class="flex space-x-2 mb-3">
-                        <select id="materialSelector" class="flex-grow rounded-lg shadow-sm p-3 border input-dark text-sm">
-                            <option value="">-- Selecione um item --</option>
+                        <!-- ADICIONADO multiple e size para melhor UX de seleção em massa -->
+                        <select id="materialSelector" multiple size="5" class="flex-grow rounded-lg shadow-sm p-3 border input-dark text-sm scrollable-content">
+                            <option value="">-- Selecione um ou mais itens --</option>
                         </select>
                         <button type="button" id="addMaterialToOrderButton" class="bg-indigo-600 text-white p-3 rounded-lg hover:bg-indigo-700 transition duration-150 text-sm font-medium whitespace-nowrap" title="Adicionar Item">
                              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" /></svg>
@@ -294,30 +324,48 @@
                     </div>
                 </div>
                 
-                <!-- Resumo de Custos e Frete -->
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <!-- Resumo de Custos e Frete (AGORA COM CUSTO ADICIONAL) -->
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
                     <div class="col-span-1">
                         <label for="valorFrete" class="block text-sm font-semibold text-gray-300">Valor do Frete (R$)</label>
-                        <input type="number" id="valorFrete" step="0.01" class="mt-1 block w-full rounded-lg shadow-sm p-3 border input-dark" min="0">
-                    </div>
-                    <div class="col-span-1">
-                        <label for="custoMateriais" class="block text-sm font-semibold text-gray-300">Custo Total dos Itens (Calc)</label>
-                        <input type="text" id="custoMateriais" readonly class="mt-1 block w-full rounded-lg shadow-sm p-3 border bg-slate-700 font-extrabold text-red-400 cursor-default" value="R$ 0,00">
+                        <input type="number" id="valorFrete" step="0.01" class="mt-1 block w-full rounded-lg shadow-sm p-3 border input-dark" min="0" placeholder="0.00">
                     </div>
                     <div class="col-span-1">
                         <label for="custoMaoDeObra" class="block text-sm font-semibold text-gray-300">Mão de Obra (R$)</label>
                         <input type="number" id="custoMaoDeObra" step="0.01" class="mt-1 block w-full rounded-lg shadow-sm p-3 border input-dark" min="0" placeholder="0.00">
                     </div>
+                    <!-- NOVO CAMPO: Custo Adicional -->
+                    <div class="col-span-1">
+                        <label for="custoAdicional" class="block text-sm font-semibold text-gray-300">Custo Adicional (R$)</label>
+                        <input type="number" id="custoAdicional" step="0.01" class="mt-1 block w-full rounded-lg shadow-sm p-3 border input-dark" min="0" placeholder="0.00">
+                    </div>
+                    <div class="col-span-1">
+                        <label for="custoTotalCalculado" class="block text-sm font-semibold text-gray-300">Custo Total (Calc)</label>
+                        <input type="text" id="custoTotalCalculado" readonly class="mt-1 block w-full rounded-lg shadow-sm p-3 border bg-slate-700 font-extrabold text-red-400 cursor-default" value="R$ 0,00">
+                    </div>
                 </div>
 
-                <!-- DADOS DE VENDA -->
+                <!-- DADOS DE VENDA (AGORA COM DESCONTO) -->
                 <h3 class="text-xl font-bold text-gray-200 pt-3 border-t border-slate-700">3. Valores de Venda e Entrada</h3>
                 
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                        <label for="valorTotal" class="block text-sm font-semibold text-gray-300">Valor de Venda (R$) <span class="text-red-400">*</span></label>
+                        <label for="valorTotal" class="block text-sm font-semibold text-gray-300">Valor Bruto do Serviço (R$) <span class="text-red-400">*</span></label>
                         <input type="number" id="valorTotal" step="0.01" required class="mt-1 block w-full rounded-lg shadow-sm p-3 border input-dark" min="0">
                     </div>
+                    <div>
+                        <label for="valorDesconto" class="block text-sm font-semibold text-gray-300">Desconto Aplicado (R$)</label>
+                        <input type="number" id="valorDesconto" step="0.01" class="mt-1 block w-full rounded-lg shadow-sm p-3 border input-dark" min="0" value="0.00">
+                    </div>
+                </div>
+                
+                <!-- Valor Final Calculado -->
+                 <div class="p-3 bg-slate-700 rounded-lg shadow-inner">
+                    <label class="block text-sm font-semibold text-gray-300">Valor Final de Venda (Calculado)</label>
+                    <input type="text" id="valorFinalVenda" readonly class="mt-1 block w-full rounded-lg shadow-sm p-2 border bg-slate-600 font-extrabold text-green-400 cursor-default text-2xl" value="R$ 0,00">
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                         <label for="meioPagamento" class="block text-sm font-semibold text-gray-300">Meio de Pagamento <span class="text-red-400">*</span></label>
                         <select id="meioPagamento" required class="mt-1 block w-full rounded-lg shadow-sm p-3 border input-dark appearance-none pr-8">
@@ -330,16 +378,11 @@
                             <option value="Outro">Outro/A Combinar</option>
                         </select>
                     </div>
-                </div>
-
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div class="sm:col-span-1">
+                    <div>
                         <label for="valorEntrada" class="block text-sm font-semibold text-gray-300">Valor de Entrada (R$)</label>
-                        <input type="number" id="valorEntrada" step="0.01" class="mt-1 block w-full rounded-lg shadow-sm p-3 border input-dark" min="0">
+                        <input type="number" id="valorEntrada" step="0.01" class="mt-1 block w-full rounded-lg shadow-sm p-3 border input-dark" min="0" placeholder="0.00">
                     </div>
-                    <div class="hidden sm:block"></div>
                 </div>
-
 
                 <!-- Observações -->
                 <div class="pb-6 pt-3">
@@ -554,9 +597,16 @@
         const modalTitleOrder = document.getElementById('modalTitleOrder');
         const selectedMaterialsList = document.getElementById('selectedMaterialsList');
         const materialSelector = document.getElementById('materialSelector'); 
-        const custoMateriaisInput = document.getElementById('custoMateriais');
+        
+        // Elementos de Custo e Venda Atualizados
         const valorFreteInput = document.getElementById('valorFrete');
         const custoMaoDeObraInput = document.getElementById('custoMaoDeObra');
+        const custoAdicionalInput = document.getElementById('custoAdicional'); 
+        const custoTotalCalculadoInput = document.getElementById('custoTotalCalculado'); 
+        const valorTotalInput = document.getElementById('valorTotal');
+        const valorDescontoInput = document.getElementById('valorDesconto'); 
+        const valorFinalVendaInput = document.getElementById('valorFinalVenda'); 
+        
         const materialsList = document.getElementById('materialsList');
         const emptyStateMaterials = document.getElementById('emptyStateMaterials');
         const materialModal = document.getElementById('materialModal');
@@ -580,6 +630,7 @@
         const totalCustoDisplay = document.getElementById('totalCusto');
         const totalLucroDisplay = document.getElementById('totalLucro');
         const chartEmptyState = document.getElementById('chartEmptyState');
+        const materialSearchInput = document.getElementById('materialSearch'); 
 
         let currentDeleteId = null;
         let currentDeleteType = null; 
@@ -600,8 +651,8 @@
                 return date.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
             } catch (e) { return dateString; }
         };
-        const calculateRemainingValue = (total, entry) => {
-            const remaining = (total || 0) - (entry || 0);
+        const calculateRemainingValue = (totalFinal, entry) => {
+            const remaining = (totalFinal || 0) - (entry || 0);
             return remaining > 0 ? formatCurrency(remaining) : 'Pago Integralmente';
         }
         const showNotification = (message, isError = false) => {
@@ -632,6 +683,8 @@
             } else if (tabName === 'materials') {
                 tabMaterials.classList.add('tab-active');
                 contentMaterials.classList.remove('hidden');
+                // Garante que a lista de materiais seja renderizada com o filtro atual
+                renderMaterials(allMaterials);
             } else if (tabName === 'finance') {
                 tabFinance.classList.add('tab-active');
                 contentFinance.classList.remove('hidden');
@@ -640,7 +693,6 @@
         };
 
         // --- Lógica do Firebase: Configuração e Referências (AGORA PÚBLICAS) ---
-        // ATENÇÃO: Mudança para coleções públicas (public/data/) para compartilhamento entre usuários.
         const getOrdersCollectionRef = () => collection(db, 'artifacts', APP_ID, 'public', 'data', 'orcamentos');
         const getMaterialsCollectionRef = () => collection(db, 'artifacts', APP_ID, 'public', 'data', 'materiais');
         const getCategoriesCollectionRef = () => collection(db, 'artifacts', APP_ID, 'public', 'data', 'categorias');
@@ -680,9 +732,7 @@
                 // 3. Autentica o App Serralheria
                 onAuthStateChanged(auth, async (user) => {
                     if (user) { userId = user.uid; } 
-                    // Como estamos em deploy estático, sempre cai no anonimo se não tiver token (INITIAL_AUTH_TOKEN = null)
                     else { await signInAnonymously(auth); userId = auth.currentUser.uid; }
-                    // O userId é exibido, mas não é usado no path das coleções (que agora é público).
                     userIdDisplay.textContent = `Usuário ID: ${userId}`;
                     isAuthReady = true;
                     setupListeners(); 
@@ -710,6 +760,8 @@
                 snapshot.forEach((doc) => { allCategories.push({ id: doc.id, ...doc.data() }); });
                 renderCategories(allCategories);
                 updateCategorySelectors();
+                // Força a atualização da lista de materiais (para nomes de categorias)
+                renderMaterials(allMaterials); 
             }, (error) => { console.error("Erro ao ouvir categorias:", error); showNotification("Erro ao carregar categorias.", true); });
 
             const qMaterials = query(getMaterialsCollectionRef());
@@ -734,7 +786,9 @@
         const sendOrderToMeiFirestore = async (order) => {
             if (!meiDb) return;
             
-            const totalCost = (order.custoMateriais || 0) + (order.valorFrete || 0) + (order.custoMaoDeObra || 0);
+            // Usar os valores finais e totais salvos no pedido
+            const valorFinalVenda = order.valorFinalVenda || (order.valorTotal || 0) - (order.valorDesconto || 0);
+            const totalCost = order.custoTotalFinal || (order.custoMateriais || 0) + (order.valorFrete || 0) + (order.custoMaoDeObra || 0) + (order.custoAdicional || 0);
 
             // Mapeamento para Faturamento
             const meiFaturamentoData = {
@@ -743,9 +797,9 @@
                 descricao: order.materialUsado || 'Serviço de Serralheria',
                 // USANDO O MEIO DE PAGAMENTO REAL DO PEDIDO
                 pagamento: order.meioPagamento || 'Outro', 
-                valor: order.valorTotal || 0.00,
+                valor: valorFinalVenda, // USANDO VALOR FINAL
                 custo: totalCost, 
-                lucro: (order.valorTotal || 0) - totalCost,
+                lucro: valorFinalVenda - totalCost,
                 comprovanteId: null, 
                 origem_app: 'Serralheria',
                 origem_pedido_id: order.id,
@@ -756,7 +810,7 @@
                     ...meiFaturamentoData, 
                     createdAt: serverTimestamp() 
                 });
-                showNotification(`SUCESSO: Venda de ${order.clienteNome} registrada no Faturamento do App MEI!`, false);
+                showNotification(`SUCESSO: Venda de ${order.clienteNome} (Final: ${formatCurrency(valorFinalVenda)}) registrada no Faturamento do App MEI!`, false);
             } catch (error) {
                 console.error("Erro ao registrar no Faturamento do App MEI:", error);
                 showNotification(`ERRO: Falha ao enviar VENDA para o App MEI. Verifique as Regras de Segurança.`, true);
@@ -767,8 +821,8 @@
         const sendExpenseToMeiFirestore = async (order) => {
             if (!meiDb) return;
             
-            // Inclui Mão de Obra no cálculo
-            const totalCost = (order.custoMateriais || 0) + (order.valorFrete || 0) + (order.custoMaoDeObra || 0);
+            // Inclui Mão de Obra e Custo Adicional
+            const totalCost = order.custoTotalFinal || (order.custoMateriais || 0) + (order.valorFrete || 0) + (order.custoMaoDeObra || 0) + (order.custoAdicional || 0);
             
             if (totalCost <= 0) {
                  console.log("Custo total é zero, Despesa MEI não registrada.");
@@ -784,9 +838,12 @@
             if (order.valorFrete > 0) {
                 detailedDescription += `Inclui Frete de ${formatCurrency(order.valorFrete)}. `;
             }
-            // Adiciona Custo de Mão de Obra na descrição
             if (order.custoMaoDeObra > 0) {
                  detailedDescription += `Inclui Mão de Obra de ${formatCurrency(order.custoMaoDeObra)}. `;
+            }
+            // NOVO: Adiciona Custo Adicional na descrição
+            if (order.custoAdicional > 0) {
+                 detailedDescription += `Inclui Custos Adicionais de ${formatCurrency(order.custoAdicional)}. `;
             }
             if (materialList) {
                  detailedDescription += `Materiais: ${materialList}`;
@@ -799,7 +856,6 @@
                 data: order.dataEntrega || new Date().toISOString().split('T')[0],
                 tipo: 'Custos', 
                 descricao: detailedDescription,
-                // Mantém 'Outro/Custo do Pedido' para Despesas, pois o meio de pagamento do cliente não se aplica ao fornecedor.
                 pagamento: 'Outro/Custo do Pedido',
                 valor: totalCost, 
                 comprovanteId: null,
@@ -822,23 +878,29 @@
 
         // --- Lógica de Resumo Financeiro TOTAL ---
         const updateFinanceSummary = (orders) => {
-            let totalVenda = 0;
+            let totalVendaFinal = 0;
             let totalCusto = 0;
 
             orders.forEach(order => {
-                totalVenda += (order.valorTotal || 0);
-                // Inclui Custo de Mão de Obra
-                const custoTotalPedido = (order.custoMateriais || 0) + (order.valorFrete || 0) + (order.custoMaoDeObra || 0);
+                // Usa o valor final salvo ou recalcula
+                const valorFinalVenda = order.valorFinalVenda || (order.valorTotal || 0) - (order.valorDesconto || 0);
+                totalVendaFinal += valorFinalVenda;
+                
+                // Usa o custo total salvo ou recalcula (inclui custoAdicional)
+                const custoTotalPedido = order.custoTotalFinal || 
+                                         (order.custoMateriais || 0) + 
+                                         (order.valorFrete || 0) + 
+                                         (order.custoMaoDeObra || 0) + 
+                                         (order.custoAdicional || 0);
                 totalCusto += custoTotalPedido;
             });
 
-            const totalLucro = totalVenda - totalCusto;
+            const totalLucro = totalVendaFinal - totalCusto;
 
-            totalVendaDisplay.textContent = formatCurrency(totalVenda);
+            totalVendaDisplay.textContent = formatCurrency(totalVendaFinal);
             totalCustoDisplay.textContent = formatCurrency(totalCusto);
             totalLucroDisplay.textContent = formatCurrency(totalLucro);
             
-            // Atualiza o gráfico se a aba estiver ativa
             if (!contentFinance.classList.contains('hidden')) {
                 renderFinanceChart(orders);
             }
@@ -861,8 +923,10 @@
                 const date = new Date(order.dataEntrega + 'T00:00:00'); 
                 const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
                 
-                const custoTotal = (order.custoMateriais || 0) + (order.valorFrete || 0) + (order.custoMaoDeObra || 0);
-                const lucro = (order.valorTotal || 0) - custoTotal;
+                // Usa os campos salvos ou recalcula com os novos custos
+                const valorFinalVenda = order.valorFinalVenda || (order.valorTotal || 0) - (order.valorDesconto || 0);
+                const custoTotal = order.custoTotalFinal || (order.custoMateriais || 0) + (order.valorFrete || 0) + (order.custoMaoDeObra || 0) + (order.custoAdicional || 0);
+                const lucro = valorFinalVenda - custoTotal;
 
                 if (!acc[monthKey]) {
                     acc[monthKey] = {
@@ -873,12 +937,11 @@
                     };
                 }
                 acc[monthKey].lucro += lucro;
-                acc[monthKey].venda += (order.valorTotal || 0);
+                acc[monthKey].venda += valorFinalVenda; // Usa Venda Final
                 acc[monthKey].custo += custoTotal;
                 return acc;
             }, {});
 
-            // Ordena os meses e prepara os dados
             const sortedMonths = Object.keys(monthlyData).sort();
             const labels = sortedMonths.map(key => monthlyData[key].monthName);
             const lucroData = sortedMonths.map(key => monthlyData[key].lucro);
@@ -905,7 +968,7 @@
                             borderRadius: 4,
                         },
                         {
-                            label: 'Venda Bruta',
+                            label: 'Venda Final',
                             data: vendaData,
                             backgroundColor: 'rgba(99, 102, 241, 0.6)', // Indigo
                             type: 'line', 
@@ -1009,7 +1072,7 @@
             }, 300); 
         };
 
-        // --- CRUD DE CATEGORIAS ---
+        // --- CRUD DE CATEGORIAS e ITENS (Funções de Renderização) ---
 
         const renderCategories = (categories) => {
             categoriesList.innerHTML = '';
@@ -1018,7 +1081,7 @@
                 return;
             }
             emptyStateCategories.classList.add('hidden');
-
+            
             categories.forEach(cat => {
                 const categoryHtml = `
                     <div class="flex items-center justify-between p-3 bg-slate-700 rounded-lg border border-slate-600">
@@ -1053,7 +1116,7 @@
                 });
             });
         };
-
+        
         const updateCategorySelectors = () => {
             const selector = document.getElementById('materialCategorySelector');
             selector.innerHTML = '<option value="">-- Selecione uma Categoria --</option>';
@@ -1108,8 +1171,6 @@
             }
         };
 
-        // --- CRUD DE ITENS/SUBCATEGORIAS ---
-
         const saveMaterial = async (e) => {
             e.preventDefault();
             
@@ -1157,7 +1218,6 @@
             }
             materialForm.reset();
             document.getElementById('materialId').value = '';
-            // Input vazio para melhor usabilidade
             document.getElementById('materialUnitCost').value = ''; 
             document.getElementById('materialCategorySelector').value = '';
             
@@ -1172,17 +1232,56 @@
             }
             openModal(materialModal, modalContentMaterial);
         };
-        
+
+        // Função Global para Expandir/Contrair
+        window.toggleCategory = (categoryId) => {
+            const body = document.getElementById(`categoryBody-${categoryId}`);
+            const chevron = document.getElementById(`chevron-${categoryId}`);
+            
+            const isExpanded = body.getAttribute('data-expanded') === 'true';
+
+            if (isExpanded) {
+                // Collapse
+                body.setAttribute('data-expanded', 'false');
+                body.style.maxHeight = '0';
+                body.style.paddingTop = '0';
+                body.style.paddingBottom = '0';
+                chevron.classList.remove('rotate-90');
+                chevron.classList.add('rotate-0');
+            } else {
+                // Expand
+                body.setAttribute('data-expanded', 'true');
+                // Use a altura grande para permitir a transição CSS
+                body.style.maxHeight = '1000px'; 
+                body.style.paddingTop = '1rem';
+                body.style.paddingBottom = '1rem';
+                chevron.classList.add('rotate-90');
+                chevron.classList.remove('rotate-0');
+            }
+        };
+
         const renderMaterials = (materials) => {
             materialsList.innerHTML = '';
 
-            if (materials.length === 0) {
+            const searchQuery = materialSearchInput.value.toLowerCase().trim();
+            
+            let filteredMaterials = materials;
+            let isSearchActive = searchQuery.length > 0;
+
+            if (isSearchActive) {
+                filteredMaterials = materials.filter(m => 
+                    m.subCategory?.toLowerCase().includes(searchQuery) ||
+                    m.mainCategory?.toLowerCase().includes(searchQuery)
+                );
+            }
+            
+            if (filteredMaterials.length === 0) {
                 emptyStateMaterials.classList.remove('hidden');
                 return;
             }
             emptyStateMaterials.classList.add('hidden');
 
-            const categories = materials.reduce((acc, material) => {
+            const categories = filteredMaterials.reduce((acc, material) => {
                 const categoryName = allCategories.find(c => c.id === material.categoryId)?.name || 'Categoria Desconhecida';
                 acc[categoryName] = acc[categoryName] || [];
                 acc[categoryName].push(material);
@@ -1190,34 +1289,62 @@
             }, {});
 
             for (const categoryName in categories) {
-                const categoryHtml = `
-                    <div class="p-4 bg-slate-700 rounded-lg border border-slate-600 mb-4">
-                        <h3 class="text-md font-bold text-indigo-300 mb-3">${categoryName}</h3>
-                        <div class="space-y-3">
-                            ${categories[categoryName].map(material => `
-                                <div class="flex items-center justify-between p-3 bg-slate-600 rounded-lg border border-slate-500 shadow-sm">
-                                    <div class="flex-grow min-w-0">
-                                        <p class="text-sm font-semibold text-gray-100 truncate" title="${material.subCategory}">
-                                            ${material.subCategory}
-                                        </p>
-                                        <p class="text-xs text-gray-400">
-                                            Custo Unitário: <span class="font-bold text-red-400">${formatCurrency(material.unitCost)}</span>
-                                        </p>
-                                    </div>
-                                    <div class="flex space-x-1 ml-4 flex-shrink-0">
-                                        <button data-action="edit" data-id="${material.id}" class="action-btn-material text-indigo-400 hover:text-indigo-200 p-1 rounded-full hover:bg-slate-700 transition" title="Editar Item">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.389-8.389-2.828-2.828z" /></svg>
-                                        </button>
-                                        <button data-action="delete" data-type="material" data-id="${material.id}" data-name="o item ${material.subCategory} (${categoryName})" class="action-btn-material text-red-400 hover:text-red-200 p-1 rounded-full hover:bg-slate-700 transition" title="Excluir Item">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
-                                        </button>
-                                    </div>
-                                </div>
-                            `).join('')}
-                        </div>
+                const categoryId = categories[categoryName][0].categoryId;
+                const categoryItems = categories[categoryName];
+                
+                // Padrão: Colapsado. Apenas expande se estiver pesquisando.
+                const isExpanded = isSearchActive ? 'true' : 'false'; 
+
+                const bodyStyle = isExpanded === 'true' 
+                    ? 'max-height: 1000px; padding-top: 1rem; padding-bottom: 1rem;'
+                    : 'max-height: 0; padding-top: 0; padding-bottom: 0;';
+
+                // Componente de Cabeçalho (Botão de Toggle)
+                const categoryHeader = `
+                    <div 
+                        class="flex items-center justify-between p-4 bg-slate-700 rounded-lg border border-slate-600 cursor-pointer hover:bg-slate-600 transition duration-150"
+                        onclick="window.toggleCategory('${categoryId}')"
+                    >
+                        <h3 class="text-md font-bold text-indigo-300">
+                            ${categoryName} (${categoryItems.length} itens)
+                        </h3>
+                        <svg id="chevron-${categoryId}" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-400 transition-transform duration-300 ${isExpanded === 'true' ? 'rotate-90' : 'rotate-0'}" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                        </svg>
                     </div>
                 `;
-                materialsList.innerHTML += categoryHtml;
+                
+                // Componente do Corpo (Itens) - Usando a classe 'collapsible-body' para a transição CSS
+                const categoryBody = `
+                    <div 
+                        id="categoryBody-${categoryId}" 
+                        class="collapsible-body space-y-3 p-4 bg-slate-700 rounded-b-lg border border-slate-600 border-t-0 -mt-3" 
+                        data-expanded="${isExpanded}"
+                        style="${bodyStyle}"
+                    >
+                        ${categoryItems.map(material => `
+                            <div class="flex items-center justify-between p-3 bg-slate-600 rounded-lg border border-slate-500 shadow-sm">
+                                <div class="flex-grow min-w-0">
+                                    <p class="text-sm font-semibold text-gray-100 truncate" title="${material.subCategory}">
+                                        ${material.subCategory}
+                                    </p>
+                                    <p class="text-xs text-gray-400">
+                                        Custo Unitário: <span class="font-bold text-red-400">${formatCurrency(material.unitCost)}</span>
+                                    </p>
+                                </div>
+                                <div class="flex space-x-1 ml-4 flex-shrink-0">
+                                    <button data-action="edit" data-id="${material.id}" class="action-btn-material text-indigo-400 hover:text-indigo-200 p-1 rounded-full hover:bg-slate-700 transition" title="Editar Item">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.389-8.389-2.828-2.828z" /></svg>
+                                    </button>
+                                    <button data-action="delete" data-type="material" data-id="${material.id}" data-name="o item ${material.subCategory} (${categoryName})" class="action-btn-material text-red-400 hover:text-red-200 p-1 rounded-full hover:bg-slate-700 transition" title="Excluir Item">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+                materialsList.innerHTML += categoryHeader + categoryBody;
             }
             
             document.querySelectorAll('.action-btn-material').forEach(button => {
@@ -1238,7 +1365,7 @@
         // --- Lógica de Seleção de Materiais no Pedido ---
         
         const updateMaterialSelector = () => {
-            materialSelector.innerHTML = '<option value="">-- Selecione um item --</option>';
+            materialSelector.innerHTML = '<option value="">-- Selecione um ou mais itens --</option>';
 
             const categories = allMaterials.reduce((acc, material) => {
                 const categoryName = allCategories.find(c => c.id === material.categoryId)?.name || 'Categoria Desconhecida';
@@ -1260,28 +1387,51 @@
             }
         };
 
+        // FUNÇÃO ATUALIZADA PARA LIDAR COM MÚLTIPLAS SELEÇÕES
         const addMaterialToOrder = () => {
-            const materialId = materialSelector.value;
-            if (!materialId) { showNotification("Selecione um item para adicionar.", true); return; }
+            // Converte as opções selecionadas para um Array
+            const selectedOptions = Array.from(materialSelector.options).filter(option => option.selected);
 
-            const material = allMaterials.find(m => m.id === materialId);
-            if (!material) return;
-            
-            if (currentOrderMaterials.some(item => item.materialId === materialId)) {
-                showNotification("Este item já foi adicionado. Edite a quantidade na lista abaixo.", true);
-                return;
+            if (selectedOptions.length === 0 || (selectedOptions.length === 1 && !selectedOptions[0].value)) { 
+                showNotification("Selecione um ou mais itens para adicionar.", true); 
+                return; 
             }
 
-            currentOrderMaterials.push({
-                materialId: material.id,
-                mainCategory: material.mainCategory || allCategories.find(c => c.id === material.categoryId)?.name || 'N/A',
-                subCategory: material.subCategory,
-                unitCost: material.unitCost,
-                quantity: 1, 
+            let itemsAddedCount = 0;
+            let alreadyExistsCount = 0;
+
+            selectedOptions.forEach(option => {
+                const materialId = option.value;
+                if (!materialId) return; // Ignora a opção de placeholder
+    
+                const material = allMaterials.find(m => m.id === materialId);
+                if (!material) return;
+                
+                if (currentOrderMaterials.some(item => item.materialId === materialId)) {
+                    alreadyExistsCount++;
+                } else {
+                    currentOrderMaterials.push({
+                        materialId: material.id,
+                        mainCategory: material.mainCategory || allCategories.find(c => c.id === material.categoryId)?.name || 'N/A',
+                        subCategory: material.subCategory,
+                        unitCost: material.unitCost,
+                        quantity: 1, 
+                    });
+                    itemsAddedCount++;
+                }
             });
 
-            materialSelector.value = ''; 
+            // Limpa a seleção após adicionar
+            selectedOptions.forEach(option => { option.selected = false; }); 
+            
             updateMaterialDisplay();
+
+            if (itemsAddedCount > 0) {
+                showNotification(`${itemsAddedCount} item(s) adicionado(s) ao pedido.`);
+            }
+            if (alreadyExistsCount > 0) {
+                console.warn(`${alreadyExistsCount} item(s) já estavam na lista e foram ignorados.`);
+            }
         };
 
         const updateMaterialDisplay = () => {
@@ -1290,7 +1440,6 @@
             } else {
                 document.getElementById('noMaterialsSelected')?.remove();
                 
-                // LAYOUT OTIMIZADO DA LISTA DE ITENS NO MODAL DE PEDIDO
                 selectedMaterialsList.innerHTML = currentOrderMaterials.map((item, index) => `
                     <div class="flex items-center justify-between p-3 rounded-lg material-list-item">
                         
@@ -1345,47 +1494,71 @@
             updateMaterialDisplay();
         };
         
+        // CÁLCULO ATUALIZADO: Inclui Custo Adicional e Desconto
         const calculateOrderCosts = () => {
-            // Se o input estiver vazio, trata como 0 para o cálculo.
             const frete = parseFloat(valorFreteInput.value) || 0.00;
             const maoDeObra = parseFloat(custoMaoDeObraInput.value) || 0.00;
+            const custoAdicional = parseFloat(custoAdicionalInput.value) || 0.00; 
+            
             const materiaisCost = currentOrderMaterials.reduce((total, item) => total + (item.unitCost * item.quantity), 0);
             
-            custoMateriaisInput.value = formatCurrency(materiaisCost);
-            return { frete: frete, materiaisCost: materiaisCost, custoMaoDeObra: maoDeObra }; 
+            const custoTotal = materiaisCost + frete + maoDeObra + custoAdicional;
+
+            custoTotalCalculadoInput.value = formatCurrency(custoTotal);
+            
+            // NOVO: Cálculo do Valor Final de Venda (Bruto - Desconto)
+            const valorBruto = parseFloat(valorTotalInput.value) || 0.00;
+            const desconto = parseFloat(valorDescontoInput.value) || 0.00;
+            const valorFinalVenda = Math.max(0, valorBruto - desconto); 
+
+            valorFinalVendaInput.value = formatCurrency(valorFinalVenda);
+
+            return { 
+                frete: frete, 
+                materiaisCost: materiaisCost, 
+                custoMaoDeObra: maoDeObra,
+                custoAdicional: custoAdicional, 
+                custoTotal: custoTotal, 
+                valorFinalVenda: valorFinalVenda, 
+                valorBruto: valorBruto, 
+                desconto: desconto 
+            }; 
         };
 
+        // Adiciona listeners para os novos campos de cálculo
         custoMaoDeObraInput.addEventListener('input', calculateOrderCosts);
+        valorFreteInput.addEventListener('input', calculateOrderCosts);
+        custoAdicionalInput.addEventListener('input', calculateOrderCosts);
+        valorTotalInput.addEventListener('input', calculateOrderCosts);
+        valorDescontoInput.addEventListener('input', calculateOrderCosts);
 
 
         // --- CRUD DE PEDIDOS (Orders) ---
 
-        // Função Única para atualizar status (AGORA TEM OS DOIS GATILHOS MEI)
         const updateOrderStatus = async (orderId, newStatus) => {
             if (!isAuthReady) { showNotification("Aguarde a inicialização do sistema.", true); return; }
             if (!orderId || !newStatus) return;
 
             const orderRef = doc(db, getOrdersCollectionRef().path, orderId);
             try {
-                // 1. Atualiza no Firebase Serralheria
                 await updateDoc(orderRef, { status: newStatus });
                 
-                // 2. Tenta integrar com o App MEI se o pedido for FINALIZADO (Entregue)
                 if (newStatus === 'Entregue') {
-                    // Busca a ordem mais recente (com o status atualizado na tela)
                     const orderToFinalize = allOrders.find(o => o.id === orderId) || { id: orderId, status: newStatus };
-                    
                     orderToFinalize.status = newStatus;
 
                     if (orderToFinalize) {
-                        // Envia a venda para Faturamento
-                        await sendOrderToMeiFirestore(orderToFinalize); 
-                        // Envia o custo para Despesas
-                        await sendExpenseToMeiFirestore(orderToFinalize); 
+                        // Recalcula e envia valores ATUALIZADOS para o MEI
+                        const currentOrderData = allOrders.find(o => o.id === orderId);
+                        if (currentOrderData) {
+                             await sendOrderToMeiFirestore(currentOrderData); 
+                             await sendExpenseToMeiFirestore(currentOrderData); 
+                        } else {
+                            console.warn("Dados da ordem não encontrados para finalizar no MEI. Apenas status atualizado.");
+                        }
                     }
                 }
                 
-                // Mostra a notificação principal
                 showNotification(`Status do pedido atualizado para: ${STATUS_MAP[newStatus].label}`);
             } catch (error) {
                 console.error("Erro ao atualizar status:", error);
@@ -1399,22 +1572,18 @@
             if (!isAuthReady) { showNotification("Aguarde a inicialização do sistema.", true); return; }
 
             const id = document.getElementById('orderId').value;
-            
-            // Pega o valor dos campos, usando 0 se estiverem vazios
-            const valorTotal = parseFloat(document.getElementById('valorTotal').value) || 0.00;
             const valorEntrada = parseFloat(document.getElementById('valorEntrada').value) || 0.00;
-            // Coleta Custo de Mão de Obra
-            const custoMaoDeObra = parseFloat(document.getElementById('custoMaoDeObra').value) || 0.00;
-            const { frete, materiaisCost } = calculateOrderCosts();
-            
-            // Pega o meio de pagamento
             const meioPagamento = document.getElementById('meioPagamento').value;
-
+            
+            // Coleta os valores calculados
+            const { frete, materiaisCost, custoMaoDeObra, custoAdicional, custoTotal, valorFinalVenda, valorBruto, desconto } = calculateOrderCosts();
 
             const data = {
                 clienteNome: document.getElementById('clienteNome').value.trim(),
                 endereco: document.getElementById('endereco').value.trim(),
-                valorTotal: valorTotal,
+                valorTotal: valorBruto, // Bruto
+                valorDesconto: desconto, // NOVO
+                valorFinalVenda: valorFinalVenda, // NOVO (Líquido)
                 meioPagamento: meioPagamento, 
                 valorEntrada: valorEntrada,
                 dataPedido: document.getElementById('dataPedido').value,
@@ -1423,8 +1592,10 @@
                 observacoes: document.getElementById('observacoes').value.trim(),
                 status: document.getElementById('status').value,
                 valorFrete: frete,
-                custoMateriais: materiaisCost,
-                custoMaoDeObra: custoMaoDeObra, // Salva o custo de Mão de Obra
+                custoMateriais: materiaisCost, // Custo só de material
+                custoMaoDeObra: custoMaoDeObra,
+                custoAdicional: custoAdicional, // NOVO
+                custoTotalFinal: custoTotal, // NOVO (Custo total completo)
                 materiaisUsados: currentOrderMaterials,
             };
 
@@ -1432,8 +1603,8 @@
                 showNotification("Preencha todos os campos obrigatórios (*).", true);
                 return;
             }
-            if (valorEntrada > valorTotal) {
-                showNotification("O valor de entrada não pode ser maior que o valor total.", true);
+            if (valorEntrada > valorFinalVenda) {
+                showNotification("O valor de entrada não pode ser maior que o valor final de venda.", true);
                 return;
             }
 
@@ -1465,17 +1636,21 @@
             
             // Inputs de valor vazios/padrão para melhor usabilidade
             valorFreteInput.value = ''; 
-            document.getElementById('valorTotal').value = '';
-            document.getElementById('valorEntrada').value = '';
             custoMaoDeObraInput.value = ''; 
+            custoAdicionalInput.value = ''; 
+            valorTotalInput.value = '';
+            valorDescontoInput.value = '0.00'; 
+            document.getElementById('valorEntrada').value = '';
             document.getElementById('meioPagamento').value = 'Pix'; 
 
 
             if (order) {
                 document.getElementById('clienteNome').value = order.clienteNome || '';
                 document.getElementById('endereco').value = order.endereco || '';
-                // Carrega valores, se existirem
-                document.getElementById('valorTotal').value = order.valorTotal || '';
+                
+                // Carrega valores
+                valorTotalInput.value = order.valorTotal || ''; // Bruto
+                valorDescontoInput.value = order.valorDesconto || '0.00'; 
                 document.getElementById('meioPagamento').value = order.meioPagamento || 'Pix'; 
                 document.getElementById('valorEntrada').value = order.valorEntrada || '';
                 document.getElementById('dataPedido').value = order.dataPedido || today;
@@ -1486,6 +1661,7 @@
                 
                 valorFreteInput.value = order.valorFrete || '';
                 custoMaoDeObraInput.value = order.custoMaoDeObra || '';
+                custoAdicionalInput.value = order.custoAdicional || ''; 
                 currentOrderMaterials = order.materiaisUsados ? JSON.parse(JSON.stringify(order.materiaisUsados)) : [];
                 
                 if (isDuplicate) {
@@ -1503,6 +1679,7 @@
             
             updateMaterialSelector();
             updateMaterialDisplay();
+            calculateOrderCosts(); // CRUCIAL para atualizar os campos calculados
             openModal(orderModal, modalContentOrder);
         };
         
@@ -1541,25 +1718,17 @@
         const renderOrders = (orders) => {
             ordersList.innerHTML = '';
             
-            // --- Lógica de Filtragem e Busca ---
             const filterInfo = STATUS_FILTERS_UI.find(f => f.key === currentStatusFilter);
             const allowedStatuses = filterInfo ? filterInfo.statuses : [];
             const searchQuery = orderSearchInput.value.toLowerCase().trim();
 
 
             const filteredAndSearchedOrders = orders.filter(order => {
-                // 1. Filtro por Status
-                if (!allowedStatuses.includes(order.status)) {
-                    return false;
-                }
-                
-                // 2. Filtro por Busca (se houver query)
+                if (!allowedStatuses.includes(order.status)) { return false; }
                 if (searchQuery.length > 0) {
                     const matchesClient = order.clienteNome?.toLowerCase().includes(searchQuery);
                     const matchesService = order.materialUsado?.toLowerCase().includes(searchQuery);
-                    if (!matchesClient && !matchesService) {
-                        return false;
-                    }
+                    if (!matchesClient && !matchesService) { return false; }
                 }
                 return true;
             });
@@ -1573,16 +1742,19 @@
             filteredAndSearchedOrders.forEach(order => {
                 const urgency = getUrgencyStyles(order.dataEntrega, order.status);
                 const statusInfo = getStatusStyles(order.status);
-                const remainingValue = calculateRemainingValue(order.valorTotal, order.valorEntrada);
-                // Inclui Mão de Obra
-                const custoTotal = (order.custoMateriais || 0) + (order.valorFrete || 0) + (order.custoMaoDeObra || 0);
-                const lucroEstimado = (order.valorTotal || 0) - custoTotal;
+                
+                // Use os novos campos
+                const valorFinalVenda = order.valorFinalVenda || (order.valorTotal || 0) - (order.valorDesconto || 0);
+                const remainingValue = calculateRemainingValue(valorFinalVenda, order.valorEntrada);
+                
+                // Custo Total: usa o novo campo ou recalcula com o adicional
+                const custoTotal = order.custoTotalFinal || (order.custoMateriais || 0) + (order.valorFrete || 0) + (order.custoMaoDeObra || 0) + (order.custoAdicional || 0);
+                const lucroEstimado = (valorFinalVenda || 0) - custoTotal;
 
                 const materialsSummary = (order.materiaisUsados || []).map(m => 
                     `<li class="text-xs text-gray-300 truncate" title="${m.mainCategory} / ${m.subCategory}">${m.quantity}x ${m.subCategory} (${m.mainCategory})</li>`
                 ).join('');
                 
-                // Card de Pedido com o tema escuro e layout reestruturado
                 const cardHtml = `
                     <div 
                         class="order-card card-bg p-5 rounded-xl shadow-lg border-l-4 border-indigo-500 transition duration-300 cursor-pointer" 
@@ -1599,14 +1771,14 @@
                                 </div>
                             </div>
                             <div class="text-right ml-4 flex-shrink-0 flex items-center space-x-3">
-                                <p class="text-xl font-extrabold text-indigo-400">${formatCurrency(order.valorTotal)}</p>
+                                <p class="text-xl font-extrabold text-indigo-400">${formatCurrency(valorFinalVenda)}</p>
                                 <svg id="chevron-${order.id}" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-500 transition-transform duration-300" viewBox="0 0 20 20" fill="currentColor">
                                     <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
                                 </svg>
                             </div>
                         </div>
 
-                        <!-- DETALHES EXPANDIDOS (NOVO LAYOUT LEVE) -->
+                        <!-- DETALHES EXPANDIDOS -->
                         <div id="details-${order.id}" class="mt-4 pt-4 border-t border-slate-700 hidden expanded-card-details p-4 rounded-lg transition duration-500">
                             
                             <!-- Bloco 1: Status e Datas -->
@@ -1626,24 +1798,31 @@
 
                             <hr class="border-slate-700">
 
-                            <!-- Bloco 2: Resumo Financeiro (5 colunas) -->
+                            <!-- Bloco 2: Resumo Financeiro ATUALIZADO (6 itens) -->
                             <div class="pt-4 pb-2">
-                                <h4 class="text-sm font-bold text-indigo-400 mb-2">Resumo de Custos e Venda</h4>
-                                <div class="grid grid-cols-2 sm:grid-cols-5 gap-4 text-sm">
-                                    <div class="pb-1"><p class="text-gray-400">Custo Material:</p><p class="font-bold text-red-400">${formatCurrency(order.custoMateriais || 0)}</p></div>
+                                <h4 class="text-sm font-bold text-indigo-400 mb-3">Detalhes Financeiros</h4>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+                                    <!-- Custos -->
+                                    <div class="pb-1"><p class="text-gray-400">Material:</p><p class="font-bold text-red-400">${formatCurrency(order.custoMateriais || 0)}</p></div>
                                     <div class="pb-1"><p class="text-gray-400">Frete:</p><p class="font-bold text-red-400">${formatCurrency(order.valorFrete || 0)}</p></div>
                                     <div class="pb-1"><p class="text-gray-400">Mão de Obra:</p><p class="font-bold text-red-400">${formatCurrency(order.custoMaoDeObra || 0)}</p></div>
-                                    <div class="pb-1"><p class="text-gray-400">Custo Total:</p><p class="font-bold text-red-400">${formatCurrency(custoTotal)}</p></div>
-                                    <div class="pb-1"><p class="text-gray-400">Venda Total:</p><p class="font-bold text-indigo-400">${formatCurrency(order.valorTotal)}</p></div>
+                                    <div class="pb-1"><p class="text-gray-400">Custo Adicional:</p><p class="font-bold text-red-400">${formatCurrency(order.custoAdicional || 0)}</p></div>
+                                    <div class="pb-1"><p class="text-gray-400 font-extrabold">Custo TOTAL:</p><p class="font-extrabold text-red-400">${formatCurrency(custoTotal)}</p></div>
                                 </div>
                                 
-                                <hr class="border-slate-700 my-2">
+                                <hr class="border-slate-700 my-4">
 
-                                <div class="grid grid-cols-3 gap-4 text-sm">
-                                    <div><p class="text-gray-400">Pagamento:</p><p class="font-bold text-gray-300">${order.meioPagamento || 'N/A'}</p></div>
-                                    <div><p class="text-gray-400">Restante:</p><p class="font-bold text-orange-400">${remainingValue}</p></div>
-                                    <div><p class="text-gray-400">Lucro Estimado:</p><p class="font-extrabold text-green-400">${formatCurrency(lucroEstimado)}</p></div>
+                                <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-sm">
+                                    <!-- Vendas e Lucro -->
+                                    <div class="pb-1"><p class="text-gray-400">Venda Bruta:</p><p class="font-bold text-indigo-400">${formatCurrency(order.valorTotal || 0)}</p></div>
+                                    <div class="pb-1"><p class="text-gray-400">Desconto:</p><p class="font-bold text-orange-400">${formatCurrency(order.valorDesconto || 0)}</p></div>
+                                    <div class="pb-1"><p class="text-gray-400 font-extrabold">Venda FINAL:</p><p class="font-extrabold text-green-400">${formatCurrency(valorFinalVenda)}</p></div>
+                                    
+                                    <div class="pb-1"><p class="text-gray-400">Entrada:</p><p class="font-bold text-gray-300">${formatCurrency(order.valorEntrada || 0)}</p></div>
+                                    <div class="pb-1"><p class="text-gray-400">Restante:</p><p class="font-bold text-orange-400">${remainingValue}</p></div>
+                                    <div class="pb-1"><p class="text-gray-400 font-extrabold">Lucro Est. Líquido:</p><p class="font-extrabold text-green-400">${formatCurrency(lucroEstimado)}</p></div>
                                 </div>
+                                <p class="text-sm text-gray-400 mt-4">Meio de Pagamento: <span class="font-bold text-gray-200">${order.meioPagamento || 'N/A'}</span></p>
                             </div>
                             
                             <hr class="border-slate-700">
@@ -1767,8 +1946,12 @@
         tabMaterials.addEventListener('click', () => switchTab('materials'));
         tabFinance.addEventListener('click', () => switchTab('finance'));
 
-        // Listener de Busca
+        // Listener de Busca (Pedidos)
         orderSearchInput.addEventListener('input', () => renderOrders(allOrders));
+        
+        // NOVO: Listener de Busca (Materiais)
+        materialSearchInput.addEventListener('input', () => renderMaterials(allMaterials));
+
 
         document.getElementById('addOrderButton').addEventListener('click', () => openEditModalOrder(null, false));
         document.getElementById('closeModalOrderButton').addEventListener('click', (e) => {
@@ -1780,7 +1963,6 @@
         });
         orderForm.addEventListener('submit', saveOrder);
         
-        valorFreteInput.addEventListener('input', calculateOrderCosts);
         document.getElementById('addMaterialToOrderButton').addEventListener('click', addMaterialToOrder);
         
         document.getElementById('addMaterialButton').addEventListener('click', () => openEditModalMaterial(null));
