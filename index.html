@@ -477,24 +477,24 @@
 
         // =================================================================
         // CONFIGURAÇÕES DO FIREBASE (FIXO PARA DEPLOY)
+        // Ambos os Apps (Serralheria e MEI) usam o mesmo projeto: vitrine-913c6
         // =================================================================
         
         // Configuração do App SERRALHERIA (Principal)
         const APP_FIREBASE_CONFIG = {
-            apiKey: "AIzaSyBI7Zecb-2tn3zUAAhiO5UmtTGcAALUiKg", // Chave do seu projeto vitrine-913c6
+            apiKey: "AIzaSyBI7Zecb-2tn3zUAAhiO5UmtTGcAALUiKg", 
             authDomain: "vitrine-913c6.firebaseapp.com",
             projectId: "vitrine-913c6", 
             storageBucket: "vitrine-913c6.firebasestorage.app",
             messagingSenderId: "1088927815489",
             appId: "1:1088927815489:web:61d745609fbf4c8b9e73c0",
         };
-        // O APP_ID do App Serralheria será o projectId: vitrine-913c6
         const APP_ID = APP_FIREBASE_CONFIG.projectId; 
         const INITIAL_AUTH_TOKEN = null; 
 
-        // Configuração do App MEI (Secundário) - Mantida para a coleção de faturamento/despesas
-        const MEI_APP_ID = 'vitrine-913c6'; 
-        const MEI_FIREBASE_CONFIG = APP_FIREBASE_CONFIG; // Ambos são o mesmo projeto
+        // Configuração do App MEI (Secundário) - Usa a mesma configuração
+        const MEI_APP_ID = APP_ID; // vitrine-913c6
+        const MEI_FIREBASE_CONFIG = APP_FIREBASE_CONFIG;
         
         // =================================================================
         
@@ -639,11 +639,11 @@
             }
         };
 
-        // --- Lógica do Firebase: Configuração e Referências ---
-        // AQUI USAMOS O APP_ID (vitrine-913c6) para todas as coleções do App Serralheria
-        const getOrdersCollectionRef = () => collection(db, 'artifacts', APP_ID, 'users', userId, 'orcamentos');
-        const getMaterialsCollectionRef = () => collection(db, 'artifacts', APP_ID, 'users', userId, 'materiais');
-        const getCategoriesCollectionRef = () => collection(db, 'artifacts', APP_ID, 'users', userId, 'categorias');
+        // --- Lógica do Firebase: Configuração e Referências (AGORA PÚBLICAS) ---
+        // ATENÇÃO: Mudança para coleções públicas (public/data/) para compartilhamento entre usuários.
+        const getOrdersCollectionRef = () => collection(db, 'artifacts', APP_ID, 'public', 'data', 'orcamentos');
+        const getMaterialsCollectionRef = () => collection(db, 'artifacts', APP_ID, 'public', 'data', 'materiais');
+        const getCategoriesCollectionRef = () => collection(db, 'artifacts', APP_ID, 'public', 'data', 'categorias');
         
         // Coleção de Faturamento no App MEI (Coleção Pública)
         const getMeiFaturamentoCollectionRef = () => collection(meiDb, 'artifacts', MEI_APP_ID, 'public', 'data', 'faturamento');
@@ -666,7 +666,7 @@
                 db = getFirestore(app);
                 auth = getAuth(app);
                 
-                // 2. Inicializa o App MEI (Secundário) - Usa a mesma config, mas com nome diferente
+                // 2. Inicializa o App MEI (Secundário) - Usa a mesma configuração, mas com nome diferente
                 const meiAppInstance = apps.find(app => app.name === 'meiApp');
                 if (!meiAppInstance) {
                     meiApp = initializeApp(MEI_FIREBASE_CONFIG, 'meiApp');
@@ -682,6 +682,7 @@
                     if (user) { userId = user.uid; } 
                     // Como estamos em deploy estático, sempre cai no anonimo se não tiver token (INITIAL_AUTH_TOKEN = null)
                     else { await signInAnonymously(auth); userId = auth.currentUser.uid; }
+                    // O userId é exibido, mas não é usado no path das coleções (que agora é público).
                     userIdDisplay.textContent = `Usuário ID: ${userId}`;
                     isAuthReady = true;
                     setupListeners(); 
@@ -766,7 +767,7 @@
         const sendExpenseToMeiFirestore = async (order) => {
             if (!meiDb) return;
             
-            // NOVO: Inclui Mão de Obra no cálculo
+            // Inclui Mão de Obra no cálculo
             const totalCost = (order.custoMateriais || 0) + (order.valorFrete || 0) + (order.custoMaoDeObra || 0);
             
             if (totalCost <= 0) {
@@ -783,7 +784,7 @@
             if (order.valorFrete > 0) {
                 detailedDescription += `Inclui Frete de ${formatCurrency(order.valorFrete)}. `;
             }
-            // NOVO: Adiciona Custo de Mão de Obra na descrição
+            // Adiciona Custo de Mão de Obra na descrição
             if (order.custoMaoDeObra > 0) {
                  detailedDescription += `Inclui Mão de Obra de ${formatCurrency(order.custoMaoDeObra)}. `;
             }
@@ -826,7 +827,7 @@
 
             orders.forEach(order => {
                 totalVenda += (order.valorTotal || 0);
-                // NOVO: Inclui Custo de Mão de Obra
+                // Inclui Custo de Mão de Obra
                 const custoTotalPedido = (order.custoMateriais || 0) + (order.valorFrete || 0) + (order.custoMaoDeObra || 0);
                 totalCusto += custoTotalPedido;
             });
@@ -837,7 +838,7 @@
             totalCustoDisplay.textContent = formatCurrency(totalCusto);
             totalLucroDisplay.textContent = formatCurrency(totalLucro);
             
-            // NOVO: Atualiza o gráfico se a aba estiver ativa
+            // Atualiza o gráfico se a aba estiver ativa
             if (!contentFinance.classList.contains('hidden')) {
                 renderFinanceChart(orders);
             }
