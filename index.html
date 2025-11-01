@@ -1,0 +1,1661 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestão de Serviços e Custos - Serralheria</title>
+    <!-- Carregamento do Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Configuração do Google Font (Inter) -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a; /* Slate 900 - Fundo principal escuro */
+            color: #f8fafc; /* Text white */
+        }
+        .modal-overlay {
+            background-color: rgba(15, 23, 42, 0.9); /* Fundo escuro semitransparente */
+        }
+        .card-bg {
+            background-color: #1e293b; /* Slate 800 - Fundo dos cards */
+        }
+        .input-dark {
+            background-color: #334155; /* Slate 700 para inputs */
+            border-color: #475569; /* Slate 600 */
+            color: #f8fafc;
+        }
+        .input-dark:focus {
+            border-color: #6366f1; /* Indigo 500 */
+            box-shadow: 0 0 0 1px #6366f1;
+        }
+        .tab-button {
+            border-bottom: 3px solid transparent;
+        }
+        .tab-active {
+            border-bottom: 3px solid #6366f1; /* Indigo 500 */
+            color: #6366f1;
+            font-weight: 700;
+        }
+        .scrollable-content::-webkit-scrollbar {
+            width: 8px;
+        }
+        .scrollable-content::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 4px;
+        }
+        /* Cor de fundo para itens de lista no modal de pedido */
+        .material-list-item {
+             background-color: #1e293b; /* Slate 800 */
+             border: 1px solid #334155; /* Slate 700 */
+        }
+        /* Estilo para a seção expandida do card de pedido (Para otimizar a clareza) */
+        .expanded-card-details {
+             background-color: #1a2334; /* Um pouco mais escuro que o card-bg para contraste sutil */
+        }
+        .filter-pill {
+            padding: 0.5rem 1rem;
+            font-size: 0.875rem; /* text-sm */
+            font-weight: 600; /* semi-bold */
+            border-radius: 9999px; /* rounded-full */
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #94a3b8; /* slate-400 */
+            background-color: #334155; /* slate-700 */
+        }
+        .filter-pill:hover {
+            background-color: #475569; /* slate-600 */
+        }
+        .filter-active {
+            background-color: #6366f1; /* indigo-500 */
+            color: #fff;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+        }
+        .filter-active:hover {
+            background-color: #4f46e5; /* indigo-600 */
+        }
+    </style>
+</head>
+<body class="min-h-screen">
+
+    <!-- Estrutura principal da aplicação -->
+    <div id="app" class="p-4 sm:p-6 max-w-4xl mx-auto">
+        
+        <!-- Cabeçalho de Destaque -->
+        <header class="mb-8 p-6 rounded-xl shadow-2xl bg-indigo-700 text-white">
+            <h1 class="text-3xl font-extrabold tracking-tight">
+                Gestão de Pedidos Serralheria
+            </h1>
+            <p id="userIdDisplay" class="text-xs opacity-75 mt-2 truncate">Usuário ID: Carregando...</p>
+        </header>
+        
+        <!-- Navegação por Abas (Tabs) -->
+        <nav class="flex space-x-6 mb-8 border-b border-slate-700">
+            <button id="tabOrders" class="tab-button py-3 px-1 text-gray-300 hover:text-indigo-400 transition duration-150 tab-active" data-tab="orders">
+                Serviços/Pedidos
+            </button>
+            <button id="tabFinance" class="tab-button py-3 px-1 text-gray-300 hover:text-indigo-400 transition duration-150" data-tab="finance">
+                Análise Financeira
+            </button>
+            <button id="tabMaterials" class="tab-button py-3 px-1 text-gray-300 hover:text-indigo-400 transition duration-150" data-tab="materials">
+                Materiais e Custos
+            </button>
+        </nav>
+
+        <!-- Informação de Status e Carregamento -->
+        <div id="loadingMessage" class="text-center p-3 mb-4 bg-yellow-900 text-yellow-300 rounded-lg font-medium hidden">Carregando dados em tempo real...</div>
+
+        <!-- Conteúdo da Aba de Pedidos (AGORA SEM O RESUMO FINANCEIRO) -->
+        <section id="contentOrders">
+            
+            <!-- Filtro de Status -->
+            <div class="mb-6 overflow-x-auto whitespace-nowrap py-2">
+                <div id="statusFilters" class="inline-flex space-x-3 p-1 rounded-full bg-slate-800 shadow-inner">
+                    <!-- Botões injetados via JS -->
+                </div>
+            </div>
+
+            <!-- Pesquisa de Pedidos -->
+            <div class="mb-6">
+                <input type="text" id="orderSearch" placeholder="Buscar por Cliente ou Serviço..." class="w-full rounded-full shadow-lg p-3 input-dark border-2 border-slate-700 focus:border-indigo-500 placeholder-slate-400">
+            </div>
+
+            <div class="flex justify-end mb-4">
+                 <button id="addOrderButton" class="bg-indigo-600 text-white font-bold py-2 px-5 rounded-full shadow-lg transition duration-300 hover:bg-indigo-700 transform hover:scale-[1.02] flex items-center text-sm">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" />
+                    </svg>
+                    Novo Pedido
+                </button>
+            </div>
+            <div id="ordersList" class="space-y-4">
+                <div id="emptyStateOrders" class="text-center p-16 card-bg rounded-xl shadow-inner hidden border border-dashed border-slate-700">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-14 w-14 mx-auto text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <h3 class="mt-4 text-lg font-semibold text-white">Nenhum pedido encontrado</h3>
+                    <p class="mt-1 text-sm text-gray-400">Clique em "Novo Pedido" para começar a gerenciar seus orçamentos e serviços.</p>
+                </div>
+            </div>
+        </section>
+        
+        <!-- Conteúdo da Aba de Análise Financeira (NOVA) -->
+        <section id="contentFinance" class="hidden">
+             <div class="p-6 card-bg rounded-xl shadow-lg border-t-4 border-indigo-500 mb-6">
+                <h3 class="text-2xl font-bold text-indigo-400 mb-4">Métricas Totais (Todos os Pedidos)</h3>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                    <!-- Card 1: Venda Total -->
+                    <div class="p-4 rounded-xl border border-green-500/50 bg-slate-700/50 text-center shadow-md">
+                        <p class="text-sm text-gray-400 font-semibold">Venda Bruta Total</p>
+                        <p id="totalVenda" class="text-3xl font-extrabold text-green-400 mt-1">R$ 0,00</p>
+                    </div>
+                    
+                    <!-- Card 2: Custo Total -->
+                    <div class="p-4 rounded-xl border border-red-500/50 bg-slate-700/50 text-center shadow-md">
+                        <p class="text-sm text-gray-400 font-semibold">Custo Total (Material + Frete)</p>
+                        <p id="totalCusto" class="text-3xl font-extrabold text-red-400 mt-1">R$ 0,00</p>
+                    </div>
+                    
+                    <!-- Card 3: Lucro Estimado -->
+                    <div class="p-4 rounded-xl border border-indigo-500/50 bg-slate-700/50 text-center shadow-md">
+                        <p class="text-sm text-gray-400 font-semibold">Lucro Estimado</p>
+                        <p id="totalLucro" class="text-3xl font-extrabold text-indigo-400 mt-1">R$ 0,00</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-6 card-bg rounded-xl shadow-lg border-t-4 border-slate-700">
+                <h3 class="text-2xl font-bold text-gray-200 mb-4">Análise Detalhada por Status</h3>
+                <p class="text-sm text-gray-400 italic">Esta seção pode ser expandida para mostrar gráficos e detalhamento por categoria, se você precisar.</p>
+                <!-- FUTURO: Gráfico ou Tabela de Lucro por Status -->
+            </div>
+        </section>
+
+
+        <!-- Conteúdo da Aba de Materiais -->
+        <section id="contentMaterials" class="hidden">
+            
+            <!-- Layout em duas colunas para Categorias e Itens -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+                <!-- 1. Gerenciamento de Categorias (Coluna Esquerda) -->
+                <div class="card-bg p-5 rounded-xl shadow-lg border-t-4 border-indigo-500">
+                    <div class="flex justify-between items-center mb-4 pb-2 border-b border-slate-700">
+                        <h3 class="text-xl font-bold text-indigo-400">1. Categorias Principais</h3>
+                        <button id="addCategoryButton" class="bg-green-600 text-white font-bold py-1.5 px-4 rounded-full shadow-md hover:bg-green-700 transition duration-300 text-sm">
+                            Nova Categoria
+                        </button>
+                    </div>
+                    <div id="categoriesList" class="space-y-3 scrollable-content max-h-96 overflow-y-auto">
+                        <p id="emptyStateCategories" class="text-sm text-gray-500 text-center py-4 hidden">Nenhuma categoria cadastrada.</p>
+                    </div>
+                </div>
+
+                <!-- 2. Gerenciamento de Itens/Subcategorias (Coluna Direita) -->
+                <div class="card-bg p-5 rounded-xl shadow-lg border-t-4 border-indigo-500">
+                    <div class="flex justify-between items-center mb-4 pb-2 border-b border-slate-700">
+                        <h3 class="text-xl font-bold text-indigo-400">2. Itens/Subcategorias com Custo</h3>
+                        <button id="addMaterialButton" class="bg-indigo-600 text-white font-bold py-1.5 px-4 rounded-full shadow-md hover:bg-indigo-700 transition duration-300 text-sm">
+                            Novo Item
+                        </button>
+                    </div>
+                    <div id="materialsList" class="space-y-4 scrollable-content max-h-96 overflow-y-auto">
+                        <div id="emptyStateMaterials" class="text-center p-8 bg-slate-700 rounded-lg shadow-inner hidden">
+                            <p class="text-sm text-gray-300">Nenhum item cadastrado. Crie Categorias antes de adicionar itens.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- Mensagem de notificação (para erro/sucesso) -->
+        <div id="notification" class="fixed bottom-6 right-6 z-50 bg-green-500 text-white p-4 rounded-xl shadow-2xl hidden transition-opacity duration-300 opacity-0 min-w-[250px]"></div>
+
+    </div>
+
+    <!-- Modal para Adicionar/Editar PEDIDO -->
+    <div id="orderModal" class="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
+        <div class="card-bg rounded-2xl shadow-2xl w-full max-w-xl max-h-[95vh] flex flex-col transform transition-all duration-300 scale-95 opacity-0 border border-slate-700" id="modalContentOrder">
+            
+            <!-- 1. Header Fixo -->
+            <h2 id="modalTitleOrder" class="text-3xl font-extrabold p-6 sm:p-8 pb-4 text-indigo-400 border-b border-slate-700">Novo Pedido</h2>
+            
+            <!-- 2. Corpo do Formulário (ROLÁVEL) -->
+            <form id="orderForm" class="scrollable-content flex-grow overflow-y-auto p-6 sm:px-8 pt-4 pb-0 space-y-6">
+                <input type="hidden" id="orderId">
+                
+                <!-- Dados do Cliente/Pedido -->
+                <h3 class="text-xl font-bold text-gray-200">1. Informações Básicas</h3>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label for="clienteNome" class="block text-sm font-semibold text-gray-300">Nome do Cliente <span class="text-red-400">*</span></label>
+                        <input type="text" id="clienteNome" required class="mt-1 block w-full rounded-lg shadow-sm p-3 border input-dark">
+                    </div>
+                    <div>
+                        <label for="endereco" class="block text-sm font-semibold text-gray-300">Endereço</label>
+                        <input type="text" id="endereco" class="mt-1 block w-full rounded-lg shadow-sm p-3 border input-dark">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div>
+                        <label for="dataPedido" class="block text-sm font-semibold text-gray-300">Data do Pedido <span class="text-red-400">*</span></label>
+                        <input type="date" id="dataPedido" required class="mt-1 block w-full rounded-lg shadow-sm p-3 border input-dark">
+                    </div>
+                    <div>
+                        <label for="dataEntrega" class="block text-sm font-semibold text-gray-300">Data de Entrega <span class="text-red-400">*</span></label>
+                        <input type="date" id="dataEntrega" required class="mt-1 block w-full rounded-lg shadow-sm p-3 border input-dark">
+                    </div>
+                    <div>
+                        <label for="status" class="block text-sm font-semibold text-gray-300">Status <span class="text-red-400">*</span></label>
+                        <select id="status" required class="mt-1 block w-full rounded-lg shadow-sm p-3 border input-dark appearance-none pr-8">
+                            <option value="Orcamento">Orçamento (Não Iniciado)</option>
+                            <option value="Em Producao">Em Produção</option>
+                            <option value="Aguardando Pagamento">Aguardando Pagamento</option>
+                            <option value="Aguardando Entrega">Aguardando Entrega</option>
+                            <option value="Entregue">Entregue</option>
+                            <option value="Cancelado">Cancelado</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Descrição -->
+                <div>
+                    <label for="materialUsado" class="block text-sm font-semibold text-gray-300">Descrição do Serviço (Título para o Card) <span class="text-red-400">*</span></label>
+                    <textarea id="materialUsado" rows="3" placeholder="Ex: Portão basculante 3x2m em metalon galvanizado..." required class="mt-1 block w-full rounded-lg shadow-sm p-3 border input-dark"></textarea>
+                </div>
+
+                
+                <!-- CUSTOS E MATERIAIS (Seção Crítica) -->
+                <h3 class="text-xl font-bold text-gray-200 pt-3 border-t border-slate-700">2. Detalhamento de Custos</h3>
+
+                <!-- Seleção e Lista de Itens -->
+                <div class="border border-slate-700 p-4 rounded-xl bg-slate-700/50">
+                    <label class="block text-sm font-semibold text-gray-300 mb-2">Adicionar Item/Subcategoria:</label>
+                    <div class="flex space-x-2 mb-3">
+                        <select id="materialSelector" class="flex-grow rounded-lg shadow-sm p-3 border input-dark text-sm">
+                            <option value="">-- Selecione um item --</option>
+                        </select>
+                        <button type="button" id="addMaterialToOrderButton" class="bg-indigo-600 text-white p-3 rounded-lg hover:bg-indigo-700 transition duration-150 text-sm font-medium whitespace-nowrap" title="Adicionar Item">
+                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z" clip-rule="evenodd" /></svg>
+                        </button>
+                    </div>
+                    
+                    <label class="block text-sm font-semibold text-gray-300 mb-2 mt-4">Itens Utilizados e Quantidade:</label>
+                    <div id="selectedMaterialsList" class="space-y-2 max-h-40 overflow-y-auto scrollable-content border border-slate-600 p-2 rounded-lg">
+                        <p id="noMaterialsSelected" class="text-sm text-gray-500 text-center py-2">Nenhum item adicionado.</p>
+                    </div>
+                </div>
+                
+                <!-- Resumo de Custos e Frete -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label for="valorFrete" class="block text-sm font-semibold text-gray-300">Valor do Frete (R$)</label>
+                        <input type="number" id="valorFrete" step="0.01" class="mt-1 block w-full rounded-lg shadow-sm p-3 border input-dark" min="0">
+                    </div>
+                    <div>
+                        <label for="custoMateriais" class="block text-sm font-semibold text-gray-300">Custo Total dos Itens (Calculado)</label>
+                        <input type="text" id="custoMateriais" readonly class="mt-1 block w-full rounded-lg shadow-sm p-3 border bg-slate-700 font-extrabold text-red-400 cursor-default" value="R$ 0,00">
+                    </div>
+                </div>
+
+                <!-- DADOS DE VENDA -->
+                <h3 class="text-xl font-bold text-gray-200 pt-3 border-t border-slate-700">3. Valores de Venda e Entrada</h3>
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label for="valorTotal" class="block text-sm font-semibold text-gray-300">Valor de Venda (R$) <span class="text-red-400">*</span></label>
+                        <input type="number" id="valorTotal" step="0.01" required class="mt-1 block w-full rounded-lg shadow-sm p-3 border input-dark" min="0">
+                    </div>
+                    <div>
+                        <label for="meioPagamento" class="block text-sm font-semibold text-gray-300">Meio de Pagamento <span class="text-red-400">*</span></label>
+                        <select id="meioPagamento" required class="mt-1 block w-full rounded-lg shadow-sm p-3 border input-dark appearance-none pr-8">
+                            <option value="Pix">Pix</option>
+                            <option value="Transferencia">Transferência Bancária</option>
+                            <option value="CartaoCredito">Cartão de Crédito</option>
+                            <option value="CartaoDebito">Cartão de Débito</option>
+                            <option value="Dinheiro">Dinheiro</option>
+                            <option value="Boleto">Boleto</option>
+                            <option value="Outro">Outro/A Combinar</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div class="sm:col-span-1">
+                        <label for="valorEntrada" class="block text-sm font-semibold text-gray-300">Valor de Entrada (R$)</label>
+                        <input type="number" id="valorEntrada" step="0.01" class="mt-1 block w-full rounded-lg shadow-sm p-3 border input-dark" min="0">
+                    </div>
+                    <div class="hidden sm:block"></div>
+                </div>
+
+
+                <!-- Observações -->
+                <div class="pb-6 pt-3">
+                    <label for="observacoes" class="block text-sm font-semibold text-gray-300">Observações Adicionais</label>
+                    <textarea id="observacoes" rows="3" placeholder="Ex: Cliente prefere contato via WhatsApp." class="mt-1 block w-full rounded-lg shadow-sm p-3 border input-dark"></textarea>
+                </div>
+            </form>
+            
+            <!-- 3. Rodapé Fixo (Botões de Ação) -->
+            <div class="p-6 sm:px-8 pt-4 border-t border-slate-700 bg-slate-800 rounded-b-2xl shadow-inner">
+                <div class="flex justify-end space-x-3">
+                    <button type="button" id="closeModalOrderButton" class="px-6 py-2 text-sm font-medium text-gray-300 bg-slate-700 rounded-full hover:bg-slate-600 transition duration-150">
+                        Cancelar
+                    </button>
+                    <button type="submit" form="orderForm" class="px-6 py-2 text-sm font-bold text-white bg-indigo-600 rounded-full hover:bg-indigo-700 shadow-lg transition duration-150 transform hover:scale-[1.02]">
+                        Salvar Pedido
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Modal para Adicionar/Editar ITEM/SUBCATEGORIA -->
+    <div id="materialModal" class="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
+        <div class="card-bg rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] flex flex-col transform transition-all duration-300 scale-95 opacity-0 border border-slate-700" id="modalContentMaterial">
+            
+            <!-- 1. Header Fixo -->
+            <h2 id="modalTitleMaterial" class="text-3xl font-extrabold p-6 sm:p-8 pb-4 text-indigo-400 border-b border-slate-700">Novo Item/Subcategoria</h2>
+            
+            <!-- 2. Corpo do Formulário -->
+            <form id="materialForm" class="flex-grow overflow-y-auto p-6 sm:px-8 pt-4 pb-0 space-y-5">
+                <input type="hidden" id="materialId">
+                
+                <div>
+                    <label for="materialCategorySelector" class="block text-sm font-semibold text-gray-300">Categoria Principal <span class="text-red-400">*</span></label>
+                    <select id="materialCategorySelector" required class="mt-1 block w-full rounded-lg shadow-sm p-3 border input-dark appearance-none pr-8">
+                        <option value="">-- Selecione uma Categoria --</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label for="materialSubCategory" class="block text-sm font-semibold text-gray-300">Subcategoria / Descrição do Item <span class="text-red-400">*</span></label>
+                    <input type="text" id="materialSubCategory" required placeholder="Ex: 20x20/Preto - Galvanizado (Unidade: Metro)" class="mt-1 block w-full rounded-lg shadow-sm p-3 border input-dark">
+                </div>
+                
+                <div>
+                    <label for="materialUnitCost" class="block text-sm font-semibold text-gray-300">Custo Unitário (R$) <span class="text-red-400">*</span></label>
+                    <input type="number" id="materialUnitCost" step="0.01" required class="mt-1 block w-full rounded-lg shadow-sm p-3 border input-dark" min="0">
+                </div>
+
+            </form>
+            
+            <!-- 3. Rodapé Fixo (Botões de Ação) -->
+            <div class="p-6 sm:px-8 pt-4 border-t border-slate-700 bg-slate-800 rounded-b-2xl shadow-inner">
+                <div class="flex justify-end space-x-3">
+                    <button type="button" id="closeModalMaterialButton" class="px-6 py-2 text-sm font-medium text-gray-300 bg-slate-700 rounded-full hover:bg-slate-600 transition duration-150">
+                        Cancelar
+                    </button>
+                    <button type="submit" form="materialForm" class="px-6 py-2 text-sm font-bold text-white bg-indigo-600 rounded-full hover:bg-indigo-700 shadow-lg transition duration-150 transform hover:scale-[1.02]">
+                        Salvar Item
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Modal para Adicionar/Editar CATEGORIA -->
+    <div id="categoryModal" class="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
+        <div class="card-bg rounded-2xl shadow-2xl w-full max-w-sm max-h-[90vh] flex flex-col transform transition-all duration-300 scale-95 opacity-0 border border-slate-700" id="modalContentCategory">
+            
+            <!-- 1. Header Fixo -->
+            <h2 id="modalTitleCategory" class="text-3xl font-extrabold p-6 sm:p-8 pb-4 text-indigo-400 border-b border-slate-700">Nova Categoria</h2>
+            
+            <!-- 2. Corpo do Formulário -->
+            <form id="categoryForm" class="flex-grow overflow-y-auto p-6 sm:px-8 pt-4 pb-0 space-y-5">
+                <input type="hidden" id="categoryId">
+                
+                <div>
+                    <label for="categoryName" class="block text-sm font-semibold text-gray-300">Nome da Categoria Principal <span class="text-red-400">*</span></label>
+                    <input type="text" id="categoryName" required placeholder="Ex: Metalon" class="mt-1 block w-full rounded-lg shadow-sm p-3 border input-dark">
+                </div>
+            </form>
+            
+            <!-- 3. Rodapé Fixo (Botões de Ação) -->
+            <div class="p-6 sm:px-8 pt-4 border-t border-slate-700 bg-slate-800 rounded-b-2xl shadow-inner">
+                <div class="flex justify-end space-x-3">
+                    <button type="button" id="closeModalCategoryButton" class="px-6 py-2 text-sm font-medium text-gray-300 bg-slate-700 rounded-full hover:bg-slate-600 transition duration-150">
+                        Cancelar
+                    </button>
+                    <button type="submit" form="categoryForm" class="px-6 py-2 text-sm font-bold text-white bg-green-600 rounded-full hover:bg-green-700 shadow-lg transition duration-150 transform hover:scale-[1.02]">
+                        Salvar Categoria
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Modal de Confirmação de Exclusão -->
+    <div id="deleteModal" class="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
+        <div class="card-bg rounded-xl shadow-2xl w-full max-w-sm p-6 text-center transform transition-all duration-300 scale-95 opacity-0 border border-slate-700" id="deleteModalContent">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mx-auto text-red-500 mb-3" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 102 0V6zm-1 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
+            </svg>
+            <h3 class="text-xl font-bold text-white mb-2">Confirmar Exclusão</h3>
+            <p class="text-sm text-gray-400 mb-6">Você realmente deseja excluir <strong id="deleteItemName" class="text-red-400"></strong>? Essa ação não pode ser desfeita.</p>
+            <div class="flex justify-center space-x-4">
+                <button id="cancelDeleteButton" class="px-5 py-2 text-sm font-medium text-gray-300 bg-slate-700 rounded-full hover:bg-slate-600 transition duration-150">
+                    Cancelar
+                </button>
+                <button id="confirmDeleteButton" class="px-5 py-2 text-sm font-medium text-white bg-red-600 rounded-full hover:bg-red-700 transition duration-150">
+                    Sim, Excluir Permanentemente
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script de Inicialização e Lógica -->
+    <script type="module">
+        // Importações necessárias do Firebase
+        import { initializeApp, getApps } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore, collection, onSnapshot, doc, 
+            addDoc, updateDoc, deleteDoc, query, orderBy, 
+            serverTimestamp, setLogLevel
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
+        // --- Configuração de Log ---
+        setLogLevel('Debug');
+
+        // =================================================================
+        // CONFIGURAÇÃO DA INTEGRAÇÃO COM O APP MEI (SEGUNDO PROJETO FIREBASE)
+        // =================================================================
+        // DADOS OBTIDOS DO SEU CÓDIGO MEI ENVIADO (vitrine-913c6)
+        
+        const MEI_APP_ID = 'vitrine-913c6'; 
+        const MEI_FIREBASE_CONFIG = {
+            apiKey: "AIzaSyBI7Zecb-2tn3zUAAhiO5UmtTGcAALUiKg", 
+            authDomain: "vitrine-913c6.firebaseapp.com", 
+            projectId: "vitrine-913c6", 
+            storageBucket: "vitrine-913c6.appspot.com",
+            messagingSenderId: "1088927815489",
+            appId: "1:1088927815489:web:61d745609fbf4c8b9e73c0",
+        };
+        // =================================================================
+        
+        // --- Variáveis Globais do Ambiente (APP SERRALHERIA) ---
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // --- Variáveis de Instância do Firebase ---
+        let app; // App Serralheria
+        let db; // Firestore Serralheria
+        let auth; // Auth Serralheria
+        
+        let meiApp; // NOVO: App MEI
+        let meiDb; // NOVO: Firestore MEI
+
+        let userId = null;
+        let isAuthReady = false;
+        let allCategories = []; 
+        let allMaterials = []; 
+        let allOrders = []; 
+        let currentStatusFilter = localStorage.getItem('orderStatusFilter') || 'Abertos'; 
+
+        // Definição dos Status para uso em filtros e estilização
+        const STATUS_MAP = {
+            'Orcamento': { label: 'Orçamento', color: 'bg-gray-200', text: 'text-gray-800', dot: 'bg-gray-600' },
+            'Em Producao': { label: 'Em Produção', color: 'bg-indigo-500', text: 'text-white', dot: 'bg-white' },
+            'Aguardando Pagamento': { label: 'Aguard. Pagamento', color: 'bg-amber-400', text: 'text-amber-900', dot: 'bg-amber-900' },
+            'Aguardando Entrega': { label: 'Aguard. Entrega', color: 'bg-sky-500', text: 'text-white', dot: 'bg-white' },
+            'Entregue': { label: 'Entregue', color: 'bg-green-600', text: 'text-white', dot: 'bg-white' },
+            'Cancelado': { label: 'Cancelado', color: 'bg-red-600', text: 'text-white', dot: 'bg-white' },
+        };
+
+        // Filtros personalizados para a UI (Botões)
+        const STATUS_FILTERS_UI = [
+            { key: 'Abertos', label: 'Abertos', statuses: ['Orcamento', 'Em Producao', 'Aguardando Pagamento', 'Aguardando Entrega'] },
+            { key: 'Em Producao', label: 'Em Produção', statuses: ['Em Producao'] },
+            { key: 'Aguardando Pagamento', label: 'Aguard. Pagamento', statuses: ['Aguardando Pagamento'] },
+            { key: 'Aguardando Entrega', label: 'Aguard. Entrega', statuses: ['Aguardando Entrega'] },
+            { key: 'Finalizados', label: 'Finalizados', statuses: ['Entregue', 'Cancelado'] },
+            { key: 'Todos', label: 'Todos', statuses: Object.keys(STATUS_MAP) },
+        ];
+
+
+        // --- Elementos do DOM ---
+        const userIdDisplay = document.getElementById('userIdDisplay');
+        const loadingMessage = document.getElementById('loadingMessage');
+        const notification = document.getElementById('notification');
+        const tabOrders = document.getElementById('tabOrders');
+        const tabMaterials = document.getElementById('tabMaterials');
+        const tabFinance = document.getElementById('tabFinance');
+        const contentOrders = document.getElementById('contentOrders');
+        const contentMaterials = document.getElementById('contentMaterials');
+        const contentFinance = document.getElementById('contentFinance');
+        const ordersList = document.getElementById('ordersList');
+        const emptyStateOrders = document.getElementById('emptyStateOrders');
+        const orderModal = document.getElementById('orderModal');
+        const modalContentOrder = document.getElementById('modalContentOrder');
+        const orderForm = document.getElementById('orderForm');
+        const modalTitleOrder = document.getElementById('modalTitleOrder');
+        const selectedMaterialsList = document.getElementById('selectedMaterialsList');
+        const materialSelector = document.getElementById('materialSelector'); 
+        const custoMateriaisInput = document.getElementById('custoMateriais');
+        const valorFreteInput = document.getElementById('valorFrete');
+        const materialsList = document.getElementById('materialsList');
+        const emptyStateMaterials = document.getElementById('emptyStateMaterials');
+        const materialModal = document.getElementById('materialModal');
+        const modalContentMaterial = document.getElementById('modalContentMaterial');
+        const materialForm = document.getElementById('materialForm');
+        const modalTitleMaterial = document.getElementById('modalTitleMaterial');
+        const materialCategorySelector = document.getElementById('materialCategorySelector'); 
+        const categoriesList = document.getElementById('categoriesList');
+        const emptyStateCategories = document.getElementById('emptyStateCategories');
+        const categoryModal = document.getElementById('categoryModal');
+        const modalContentCategory = document.getElementById('modalContentCategory');
+        const categoryForm = document.getElementById('categoryForm');
+        const deleteModal = document.getElementById('deleteModal');
+        const deleteModalContent = document.getElementById('deleteModalContent');
+        const deleteItemName = document.getElementById('deleteItemName');
+        const statusFiltersContainer = document.getElementById('statusFilters'); 
+        
+        // Elementos para Busca e Resumo Financeiro
+        const orderSearchInput = document.getElementById('orderSearch');
+        const totalVendaDisplay = document.getElementById('totalVenda');
+        const totalCustoDisplay = document.getElementById('totalCusto');
+        const totalLucroDisplay = document.getElementById('totalLucro');
+
+        let currentDeleteId = null;
+        let currentDeleteType = null; 
+        let currentOrderMaterials = []; 
+
+        // --- Utilitários ---
+        const formatCurrency = (value) => {
+            return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', }).format(value);
+        };
+        const formatDate = (dateString) => {
+            if (!dateString) return 'N/A';
+            try {
+                let date;
+                if (dateString.toDate) { date = dateString.toDate(); } 
+                else if (typeof dateString === 'string') { date = new Date(dateString + 'T00:00:00'); } 
+                else { date = new Date(dateString); }
+                if (isNaN(date) || date.getFullYear() < 1970) return 'Data Inválida';
+                return date.toLocaleDateString('pt-BR', { timeZone: 'UTC' });
+            } catch (e) { return dateString; }
+        };
+        const calculateRemainingValue = (total, entry) => {
+            const remaining = (total || 0) - (entry || 0);
+            return remaining > 0 ? formatCurrency(remaining) : 'Pago Integralmente';
+        }
+        const showNotification = (message, isError = false) => {
+            notification.textContent = message;
+            notification.classList.remove('hidden', 'opacity-0', 'bg-green-600', 'bg-red-600');
+            notification.classList.add(isError ? 'bg-red-600' : 'bg-green-600');
+            
+            void notification.offsetWidth; 
+            notification.classList.add('opacity-100');
+
+            setTimeout(() => {
+                notification.classList.remove('opacity-100');
+                notification.classList.add('opacity-0');
+                setTimeout(() => { notification.classList.add('hidden'); }, 300);
+            }, 3000);
+        };
+        
+        // --- Lógica de Abas (Tabs) ---
+        const switchTab = (tabName) => {
+            document.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('tab-active'));
+            contentOrders.classList.add('hidden');
+            contentMaterials.classList.add('hidden');
+            contentFinance.classList.add('hidden'); 
+
+            if (tabName === 'orders') {
+                tabOrders.classList.add('tab-active');
+                contentOrders.classList.remove('hidden');
+            } else if (tabName === 'materials') {
+                tabMaterials.classList.add('tab-active');
+                contentMaterials.classList.remove('hidden');
+            } else if (tabName === 'finance') {
+                tabFinance.classList.add('tab-active');
+                contentFinance.classList.remove('hidden');
+            }
+        };
+
+        // --- Lógica do Firebase: Configuração e Referências ---
+        const getOrdersCollectionRef = () => collection(db, 'artifacts', appId, 'users', userId, 'orcamentos');
+        const getMaterialsCollectionRef = () => collection(db, 'artifacts', appId, 'users', userId, 'materiais');
+        const getCategoriesCollectionRef = () => collection(db, 'artifacts', appId, 'users', userId, 'categorias');
+        
+        // Coleção de Faturamento no App MEI (Coleção Pública)
+        const getMeiFaturamentoCollectionRef = () => collection(meiDb, 'artifacts', MEI_APP_ID, 'public', 'data', 'faturamento');
+        // Coleção de Despesas no App MEI (Coleção Pública)
+        const getMeiDespesasCollectionRef = () => collection(meiDb, 'artifacts', MEI_APP_ID, 'public', 'data', 'despesas');
+
+
+        const initializeFirebase = async () => {
+            try {
+                // 1. Inicializa o App Serralheria (Principal)
+                const apps = getApps();
+                
+                // Sempre usa o array de apps para inicializar ou buscar o app principal
+                if (apps.length === 0 || !apps.find(a => a.name === '[DEFAULT]')) {
+                    app = initializeApp(firebaseConfig);
+                } else {
+                    app = apps.find(a => a.name === '[DEFAULT]');
+                }
+                
+                db = getFirestore(app);
+                auth = getAuth(app);
+                
+                // 2. Inicializa o App MEI (Secundário)
+                const meiAppInstance = apps.find(app => app.name === 'meiApp');
+                if (!meiAppInstance) {
+                    meiApp = initializeApp(MEI_FIREBASE_CONFIG, 'meiApp');
+                } else {
+                    meiApp = meiAppInstance;
+                }
+                meiDb = getFirestore(meiApp);
+                console.log("Integração MEI Firestore inicializada.");
+
+
+                // 3. Autentica o App Serralheria
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) { userId = user.uid; } 
+                    else if (initialAuthToken) { await signInWithCustomToken(auth, initialAuthToken); userId = auth.currentUser.uid; } 
+                    else { await signInAnonymously(auth); userId = auth.currentUser.uid; }
+                    userIdDisplay.textContent = `Usuário ID: ${userId}`;
+                    isAuthReady = true;
+                    setupListeners(); 
+                });
+            } catch (e) {
+                console.error("Erro na inicialização do Firebase:", e);
+                userIdDisplay.textContent = 'Erro ao carregar (verifique o console)';
+                showNotification("Erro ao carregar o sistema de dados. Tente novamente.", true);
+            }
+        };
+
+        const setupListeners = () => {
+            if (!isAuthReady) return;
+            loadingMessage.classList.remove('hidden');
+            
+            renderStatusFilters(); 
+
+            const qCategories = query(getCategoriesCollectionRef(), orderBy('name', 'asc'));
+            onSnapshot(qCategories, (snapshot) => {
+                allCategories = [];
+                snapshot.forEach((doc) => { allCategories.push({ id: doc.id, ...doc.data() }); });
+                renderCategories(allCategories);
+                updateCategorySelectors();
+            }, (error) => { console.error("Erro ao ouvir categorias:", error); showNotification("Erro ao carregar categorias.", true); });
+
+            const qMaterials = query(getMaterialsCollectionRef());
+            onSnapshot(qMaterials, (snapshot) => {
+                allMaterials = [];
+                snapshot.forEach((doc) => { allMaterials.push({ id: doc.id, ...doc.data() }); });
+                renderMaterials(allMaterials);
+                updateMaterialSelector(); 
+            }, (error) => { console.error("Erro ao ouvir materiais:", error); showNotification("Erro ao carregar itens de custo.", true); });
+            
+            const qOrders = query(getOrdersCollectionRef(), orderBy('dataEntrega', 'asc'));
+            onSnapshot(qOrders, (snapshot) => {
+                allOrders = []; 
+                snapshot.forEach((doc) => { allOrders.push({ id: doc.id, ...doc.data() }); });
+                updateFinanceSummary(allOrders); 
+                renderOrders(allOrders); 
+                loadingMessage.classList.add('hidden');
+            }, (error) => { console.error("Erro ao ouvir pedidos:", error); loadingMessage.classList.add('hidden'); showNotification("Erro ao carregar pedidos em tempo real.", true); });
+        };
+        
+        // --- FUNÇÃO 1 DE INTEGRAÇÃO: VENDA (Faturamento) ---
+        const sendOrderToMeiFirestore = async (order) => {
+            if (!meiDb) return;
+            
+            const totalCost = (order.custoMateriais || 0) + (order.valorFrete || 0);
+
+            // Mapeamento para Faturamento
+            const meiFaturamentoData = {
+                data: order.dataEntrega || new Date().toISOString().split('T')[0],
+                cliente: order.clienteNome || 'Cliente Não Identificado',
+                descricao: order.materialUsado || 'Serviço de Serralheria',
+                // USANDO O MEIO DE PAGAMENTO REAL DO PEDIDO
+                pagamento: order.meioPagamento || 'Outro', 
+                valor: order.valorTotal || 0.00,
+                custo: totalCost, 
+                lucro: (order.valorTotal || 0) - totalCost,
+                comprovanteId: null, 
+                origem_app: 'Serralheria',
+                origem_pedido_id: order.id,
+            };
+
+            try {
+                await addDoc(getMeiFaturamentoCollectionRef(), { 
+                    ...meiFaturamentoData, 
+                    createdAt: serverTimestamp() 
+                });
+                showNotification(`SUCESSO: Venda de ${order.clienteNome} registrada no Faturamento do App MEI!`, false);
+            } catch (error) {
+                console.error("Erro ao registrar no Faturamento do App MEI:", error);
+                showNotification(`ERRO: Falha ao enviar VENDA para o App MEI. Verifique as Regras de Segurança.`, true);
+            }
+        };
+
+        // --- FUNÇÃO 2 DE INTEGRAÇÃO: CUSTO (Despesas) ---
+        const sendExpenseToMeiFirestore = async (order) => {
+            if (!meiDb) return;
+            
+            const totalCost = (order.custoMateriais || 0) + (order.valorFrete || 0);
+            
+            if (totalCost <= 0) {
+                 console.log("Custo total é zero, Despesa MEI não registrada.");
+                 return; 
+            }
+            
+            const materialList = (order.materiaisUsados || []).map(m => 
+                `${m.quantity}x ${m.subCategory} (${m.mainCategory})`
+            ).join(', ');
+
+            // Descrição detalhada dos custos
+            let detailedDescription = `Custos para o serviço: ${order.materialUsado} (Cliente: ${order.clienteNome}). `;
+            if (order.valorFrete > 0) {
+                detailedDescription += `Inclui Frete de ${formatCurrency(order.valorFrete)}. `;
+            }
+            if (materialList) {
+                 detailedDescription += `Materiais: ${materialList}`;
+            } else {
+                 detailedDescription += `Sem detalhe de materiais.`;
+            }
+
+            // Mapeamento para Despesas
+            const meiDespesaData = {
+                data: order.dataEntrega || new Date().toISOString().split('T')[0],
+                tipo: 'Custos', 
+                descricao: detailedDescription,
+                // Mantém 'Outro/Custo do Pedido' para Despesas, pois o meio de pagamento do cliente não se aplica ao fornecedor.
+                pagamento: 'Outro/Custo do Pedido',
+                valor: totalCost, 
+                comprovanteId: null,
+                origem_app: 'Serralheria',
+                origem_pedido_id: order.id,
+            };
+
+            try {
+                await addDoc(getMeiDespesasCollectionRef(), { 
+                    ...meiDespesaData, 
+                    createdAt: serverTimestamp() 
+                });
+                showNotification(`SUCESSO: Custo de ${formatCurrency(totalCost)} registrado nas Despesas do App MEI!`, false);
+            } catch (error) {
+                console.error("Erro ao registrar Despesa no App MEI:", error);
+                showNotification(`ERRO: Falha ao enviar DESPESA para o App MEI. Verifique as Regras de Segurança.`, true);
+            }
+        };
+
+
+        // --- Lógica de Resumo Financeiro TOTAL ---
+        const updateFinanceSummary = (orders) => {
+            let totalVenda = 0;
+            let totalCusto = 0;
+
+            orders.forEach(order => {
+                totalVenda += (order.valorTotal || 0);
+                const custoTotalPedido = (order.custoMateriais || 0) + (order.valorFrete || 0);
+                totalCusto += custoTotalPedido;
+            });
+
+            const totalLucro = totalVenda - totalCusto;
+
+            totalVendaDisplay.textContent = formatCurrency(totalVenda);
+            totalCustoDisplay.textContent = formatCurrency(totalCusto);
+            totalLucroDisplay.textContent = formatCurrency(totalLucro);
+        }
+
+
+        // --- Lógica de Filtro de Status ---
+        const renderStatusFilters = () => {
+            statusFiltersContainer.innerHTML = '';
+
+            STATUS_FILTERS_UI.forEach(filter => {
+                const button = document.createElement('button');
+                button.textContent = filter.label;
+                button.classList.add('filter-pill', 'transition');
+                button.setAttribute('data-filter', filter.key);
+                
+                if (filter.key === currentStatusFilter) {
+                    button.classList.add('filter-active');
+                }
+
+                button.addEventListener('click', () => setStatusFilter(filter.key));
+                statusFiltersContainer.appendChild(button);
+            });
+        };
+
+        const setStatusFilter = (newStatus) => {
+            currentStatusFilter = newStatus;
+            localStorage.setItem('orderStatusFilter', newStatus); 
+            
+            // Atualiza o estilo dos botões
+            document.querySelectorAll('.filter-pill').forEach(btn => {
+                btn.classList.remove('filter-active');
+                if (btn.getAttribute('data-filter') === newStatus) {
+                    btn.classList.add('filter-active');
+                }
+            });
+
+            renderOrders(allOrders); 
+        };
+
+        // --- Funções de Modal Comuns ---
+        const openModal = (modalElement, contentElement) => {
+             modalElement.classList.remove('hidden');
+             setTimeout(() => {
+                contentElement.classList.remove('scale-95', 'opacity-0');
+                contentElement.classList.add('scale-100', 'opacity-100');
+             }, 10);
+        }
+
+        const closeModal = (modalElement, contentElement, formElement) => {
+            contentElement.classList.remove('scale-100', 'opacity-100');
+            contentElement.classList.add('scale-95', 'opacity-0');
+            setTimeout(() => {
+                modalElement.classList.add('hidden');
+                if(formElement) formElement.reset();
+            }, 300); 
+        };
+
+        // --- CRUD DE CATEGORIAS ---
+
+        const renderCategories = (categories) => {
+            categoriesList.innerHTML = '';
+            if (categories.length === 0) {
+                emptyStateCategories.classList.remove('hidden');
+                return;
+            }
+            emptyStateCategories.classList.add('hidden');
+
+            categories.forEach(cat => {
+                const categoryHtml = `
+                    <div class="flex items-center justify-between p-3 bg-slate-700 rounded-lg border border-slate-600">
+                        <span class="font-medium text-gray-200">${cat.name}</span>
+                        <div class="flex space-x-1">
+                            <button data-action="edit" data-id="${cat.id}" data-name="${cat.name}" class="action-btn-category text-indigo-400 hover:text-indigo-200 p-1 rounded-full hover:bg-slate-600 transition" title="Editar Categoria">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.389-8.389-2.828-2.828z" /></svg>
+                            </button>
+                            <button data-action="delete" data-type="category" data-id="${cat.id}" data-name="a categoria ${cat.name}" class="action-btn-category text-red-400 hover:text-red-200 p-1 rounded-full hover:bg-slate-600 transition" title="Excluir Categoria">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                categoriesList.innerHTML += categoryHtml;
+            });
+            
+            document.querySelectorAll('.action-btn-category').forEach(button => {
+                const action = button.getAttribute('data-action');
+                const id = button.getAttribute('data-id');
+                const name = button.getAttribute('data-name');
+                const type = button.getAttribute('data-type');
+                
+                button.addEventListener('click', (e) => {
+                    e.stopPropagation(); 
+                    if (action === 'edit') {
+                        const category = allCategories.find(c => c.id === id);
+                        openEditModalCategory(category);
+                    } else if (action === 'delete') {
+                        openDeleteModal(id, name, type);
+                    }
+                });
+            });
+        };
+
+        const updateCategorySelectors = () => {
+            const selector = document.getElementById('materialCategorySelector');
+            selector.innerHTML = '<option value="">-- Selecione uma Categoria --</option>';
+
+            allCategories.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat.id;
+                option.textContent = cat.name;
+                selector.appendChild(option);
+            });
+        };
+
+        const openEditModalCategory = (category = null) => {
+            categoryForm.reset();
+            document.getElementById('categoryId').value = '';
+            
+            if (category) {
+                document.getElementById('categoryId').value = category.id;
+                document.getElementById('categoryName').value = category.name || '';
+                modalTitleCategory.textContent = `Editar Categoria: ${category.name}`;
+            } else {
+                modalTitleCategory.textContent = 'Nova Categoria';
+            }
+            openModal(categoryModal, modalContentCategory);
+        };
+        
+        const saveCategory = async (e) => {
+            e.preventDefault();
+            
+            if (!isAuthReady) { showNotification("Aguarde a inicialização do sistema.", true); return; }
+
+            const id = document.getElementById('categoryId').value;
+            const name = document.getElementById('categoryName').value.trim();
+
+            if (!name) { showNotification("O nome da categoria é obrigatório.", true); return; }
+
+            const data = { name };
+
+            try {
+                if (id) {
+                    const catRef = doc(db, getCategoriesCollectionRef().path, id);
+                    await updateDoc(catRef, data);
+                    showNotification(`Categoria "${name}" atualizada!`);
+                } else {
+                    await addDoc(getCategoriesCollectionRef(), { ...data, createdAt: serverTimestamp() });
+                    showNotification(`Nova categoria "${name}" adicionada!`);
+                }
+                closeModal(categoryModal, modalContentCategory, categoryForm);
+            } catch (error) {
+                console.error("Erro ao salvar categoria:", error);
+                showNotification("Erro ao salvar a categoria no banco de dados.", true);
+            }
+        };
+
+        // --- CRUD DE ITENS/SUBCATEGORIAS ---
+
+        const saveMaterial = async (e) => {
+            e.preventDefault();
+            
+            if (!isAuthReady) { showNotification("Aguarde a inicialização do sistema.", true); return; }
+
+            const id = document.getElementById('materialId').value;
+            const categoryId = document.getElementById('materialCategorySelector').value;
+            const subCategory = document.getElementById('materialSubCategory').value.trim();
+            const unitCost = parseFloat(document.getElementById('materialUnitCost').value) || 0.00;
+
+            if (!categoryId || !subCategory || unitCost <= 0) {
+                showNotification("Selecione a categoria, preencha o item e certifique-se que o custo é maior que zero.", true);
+                return;
+            }
+            
+            const categoryName = allCategories.find(c => c.id === categoryId)?.name || 'Categoria Desconhecida';
+
+            const data = {
+                categoryId: categoryId,
+                mainCategory: categoryName, 
+                subCategory: subCategory,
+                unitCost: unitCost,
+            };
+
+            try {
+                if (id) {
+                    const materialRef = doc(db, getMaterialsCollectionRef().path, id);
+                    await updateDoc(materialRef, data);
+                    showNotification(`Item "${data.subCategory}" atualizado!`);
+                } else {
+                    await addDoc(getMaterialsCollectionRef(), { ...data, createdAt: serverTimestamp() });
+                    showNotification(`Novo item "${data.subCategory}" adicionado!`);
+                }
+                closeModal(materialModal, modalContentMaterial, materialForm);
+            } catch (error) {
+                console.error("Erro ao salvar item:", error);
+                showNotification("Erro ao salvar o item no banco de dados.", true);
+            }
+        };
+
+        const openEditModalMaterial = (material = null) => {
+            if (allCategories.length === 0) {
+                showNotification("Cadastre pelo menos uma Categoria Principal primeiro!", true);
+                return;
+            }
+            materialForm.reset();
+            document.getElementById('materialId').value = '';
+            // Input vazio para melhor usabilidade
+            document.getElementById('materialUnitCost').value = ''; 
+            document.getElementById('materialCategorySelector').value = '';
+            
+            if (material) {
+                modalTitleMaterial.textContent = `Editar Item: ${material.subCategory}`;
+                document.getElementById('materialId').value = material.id;
+                document.getElementById('materialCategorySelector').value = material.categoryId || '';
+                document.getElementById('materialSubCategory').value = material.subCategory || '';
+                document.getElementById('materialUnitCost').value = material.unitCost || ''; 
+            } else {
+                modalTitleMaterial.textContent = 'Novo Item/Subcategoria';
+            }
+            openModal(materialModal, modalContentMaterial);
+        };
+        
+        const renderMaterials = (materials) => {
+            materialsList.innerHTML = '';
+
+            if (materials.length === 0) {
+                emptyStateMaterials.classList.remove('hidden');
+                return;
+            }
+            emptyStateMaterials.classList.add('hidden');
+
+            const categories = materials.reduce((acc, material) => {
+                const categoryName = allCategories.find(c => c.id === material.categoryId)?.name || 'Categoria Desconhecida';
+                acc[categoryName] = acc[categoryName] || [];
+                acc[categoryName].push(material);
+                return acc;
+            }, {});
+
+            for (const categoryName in categories) {
+                const categoryHtml = `
+                    <div class="p-4 bg-slate-700 rounded-lg border border-slate-600 mb-4">
+                        <h3 class="text-md font-bold text-indigo-300 mb-3">${categoryName}</h3>
+                        <div class="space-y-3">
+                            ${categories[categoryName].map(material => `
+                                <div class="flex items-center justify-between p-3 bg-slate-600 rounded-lg border border-slate-500 shadow-sm">
+                                    <div class="flex-grow min-w-0">
+                                        <p class="text-sm font-semibold text-gray-100 truncate" title="${material.subCategory}">
+                                            ${material.subCategory}
+                                        </p>
+                                        <p class="text-xs text-gray-400">
+                                            Custo Unitário: <span class="font-bold text-red-400">${formatCurrency(material.unitCost)}</span>
+                                        </p>
+                                    </div>
+                                    <div class="flex space-x-1 ml-4 flex-shrink-0">
+                                        <button data-action="edit" data-id="${material.id}" class="action-btn-material text-indigo-400 hover:text-indigo-200 p-1 rounded-full hover:bg-slate-700 transition" title="Editar Item">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.389-8.389-2.828-2.828z" /></svg>
+                                        </button>
+                                        <button data-action="delete" data-type="material" data-id="${material.id}" data-name="o item ${material.subCategory} (${categoryName})" class="action-btn-material text-red-400 hover:text-red-200 p-1 rounded-full hover:bg-slate-700 transition" title="Excluir Item">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+                materialsList.innerHTML += categoryHtml;
+            }
+            
+            document.querySelectorAll('.action-btn-material').forEach(button => {
+                const action = button.getAttribute('data-action');
+                const id = button.getAttribute('data-id');
+                const type = button.getAttribute('data-type');
+                const name = button.getAttribute('data-name');
+                
+                button.addEventListener('click', (e) => {
+                    e.stopPropagation(); 
+                    const material = allMaterials.find(m => m.id === id); 
+                    if (action === 'edit') { openEditModalMaterial(material); } 
+                    else if (action === 'delete') { openDeleteModal(id, name, type); }
+                });
+            });
+        };
+        
+        // --- Lógica de Seleção de Materiais no Pedido ---
+        
+        const updateMaterialSelector = () => {
+            materialSelector.innerHTML = '<option value="">-- Selecione um item --</option>';
+
+            const categories = allMaterials.reduce((acc, material) => {
+                const categoryName = allCategories.find(c => c.id === material.categoryId)?.name || 'Categoria Desconhecida';
+                acc[categoryName] = acc[categoryName] || [];
+                acc[categoryName].push(material);
+                return acc;
+            }, {});
+
+            for (const categoryName in categories) {
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = categoryName;
+                categories[categoryName].forEach(material => {
+                    const option = document.createElement('option');
+                    option.value = material.id;
+                    option.textContent = `${material.subCategory} (R$ ${material.unitCost.toFixed(2)})`;
+                    optgroup.appendChild(option);
+                });
+                materialSelector.appendChild(optgroup);
+            }
+        };
+
+        const addMaterialToOrder = () => {
+            const materialId = materialSelector.value;
+            if (!materialId) { showNotification("Selecione um item para adicionar.", true); return; }
+
+            const material = allMaterials.find(m => m.id === materialId);
+            if (!material) return;
+            
+            if (currentOrderMaterials.some(item => item.materialId === materialId)) {
+                showNotification("Este item já foi adicionado. Edite a quantidade na lista abaixo.", true);
+                return;
+            }
+
+            currentOrderMaterials.push({
+                materialId: material.id,
+                mainCategory: material.mainCategory || allCategories.find(c => c.id === material.categoryId)?.name || 'N/A',
+                subCategory: material.subCategory,
+                unitCost: material.unitCost,
+                quantity: 1, 
+            });
+
+            materialSelector.value = ''; 
+            updateMaterialDisplay();
+        };
+
+        const updateMaterialDisplay = () => {
+            if (currentOrderMaterials.length === 0) {
+                selectedMaterialsList.innerHTML = `<p id="noMaterialsSelected" class="text-sm text-gray-500 text-center py-2">Nenhum item adicionado.</p>`;
+            } else {
+                document.getElementById('noMaterialsSelected')?.remove();
+                
+                // LAYOUT OTIMIZADO DA LISTA DE ITENS NO MODAL DE PEDIDO
+                selectedMaterialsList.innerHTML = currentOrderMaterials.map((item, index) => `
+                    <div class="flex items-center justify-between p-3 rounded-lg material-list-item">
+                        
+                        <!-- Quantidade (Input) -->
+                        <div class="flex items-center space-x-2 flex-shrink-0">
+                            <input 
+                                type="number" 
+                                data-index="${index}" 
+                                value="${item.quantity}" 
+                                min="0.01" 
+                                step="0.01"
+                                class="w-16 p-1 text-center text-sm rounded-lg border border-slate-600 focus:border-indigo-500 bg-slate-700 text-white"
+                                onchange="window.updateMaterialQuantity(this)"
+                            >
+                        </div>
+                        
+                        <!-- Nome do Item (Texto Principal) - Sem custo unitário explícito -->
+                        <div class="flex-grow min-w-0 px-3">
+                             <span class="block text-sm font-semibold text-gray-100 truncate" title="${item.subCategory}">
+                                ${item.subCategory}
+                            </span>
+                             <span class="block text-xs text-indigo-400">${item.mainCategory}</span>
+                        </div>
+                        
+                        <!-- Botão de Remoção -->
+                        <div class="flex-shrink-0">
+                             <button type="button" data-index="${index}" class="text-red-400 hover:text-red-200 p-1 rounded-full hover:bg-slate-700 remove-material-btn" title="Remover" onclick="window.removeMaterialFromOrder(this)">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" /></svg>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            calculateOrderCosts();
+        };
+        
+        window.updateMaterialQuantity = (input) => {
+            const index = parseInt(input.getAttribute('data-index'));
+            let quantity = parseFloat(input.value);
+            
+            if (isNaN(quantity) || quantity <= 0) {
+                quantity = 0.01;
+                input.value = 0.01;
+            }
+            currentOrderMaterials[index].quantity = quantity;
+            updateMaterialDisplay();
+        };
+
+        window.removeMaterialFromOrder = (button) => {
+            const index = parseInt(button.getAttribute('data-index'));
+            currentOrderMaterials.splice(index, 1);
+            updateMaterialDisplay();
+        };
+        
+        const calculateOrderCosts = () => {
+            // Se o input estiver vazio, trata como 0 para o cálculo.
+            const frete = parseFloat(valorFreteInput.value) || 0.00;
+            const materiaisCost = currentOrderMaterials.reduce((total, item) => total + (item.unitCost * item.quantity), 0);
+            
+            custoMateriaisInput.value = formatCurrency(materiaisCost);
+            return { frete: frete, materiaisCost: materiaisCost }; 
+        };
+
+        // --- CRUD DE PEDIDOS (Orders) ---
+
+        // Função Única para atualizar status (AGORA TEM OS DOIS GATILHOS MEI)
+        const updateOrderStatus = async (orderId, newStatus) => {
+            if (!isAuthReady) { showNotification("Aguarde a inicialização do sistema.", true); return; }
+            if (!orderId || !newStatus) return;
+
+            const orderRef = doc(db, getOrdersCollectionRef().path, orderId);
+            try {
+                // 1. Atualiza no Firebase Serralheria
+                await updateDoc(orderRef, { status: newStatus });
+                
+                // 2. Tenta integrar com o App MEI se o pedido for FINALIZADO (Entregue)
+                if (newStatus === 'Entregue') {
+                    const orderToFinalize = allOrders.find(o => o.id === orderId);
+                    if (orderToFinalize) {
+                        // Envia a venda para Faturamento
+                        await sendOrderToMeiFirestore(orderToFinalize); 
+                        // Envia o custo para Despesas
+                        await sendExpenseToMeiFirestore(orderToFinalize); 
+                    }
+                }
+                
+                // Mostra a notificação principal
+                showNotification(`Status do pedido atualizado para: ${STATUS_MAP[newStatus].label}`);
+            } catch (error) {
+                console.error("Erro ao atualizar status:", error);
+                showNotification("Erro ao atualizar o status no banco de dados.", true);
+            }
+        };
+
+        const saveOrder = async (e) => {
+            e.preventDefault();
+            
+            if (!isAuthReady) { showNotification("Aguarde a inicialização do sistema.", true); return; }
+
+            const id = document.getElementById('orderId').value;
+            
+            // Pega o valor dos campos, usando 0 se estiverem vazios
+            const valorTotal = parseFloat(document.getElementById('valorTotal').value) || 0.00;
+            const valorEntrada = parseFloat(document.getElementById('valorEntrada').value) || 0.00;
+            const { frete, materiaisCost } = calculateOrderCosts();
+            
+            // NOVO: Pega o meio de pagamento
+            const meioPagamento = document.getElementById('meioPagamento').value;
+
+
+            const data = {
+                clienteNome: document.getElementById('clienteNome').value.trim(),
+                endereco: document.getElementById('endereco').value.trim(),
+                valorTotal: valorTotal,
+                meioPagamento: meioPagamento, // NOVO: Salva o meio de pagamento
+                valorEntrada: valorEntrada,
+                dataPedido: document.getElementById('dataPedido').value,
+                dataEntrega: document.getElementById('dataEntrega').value,
+                materialUsado: document.getElementById('materialUsado').value.trim(), 
+                observacoes: document.getElementById('observacoes').value.trim(),
+                status: document.getElementById('status').value,
+                valorFrete: frete,
+                custoMateriais: materiaisCost,
+                materiaisUsados: currentOrderMaterials,
+            };
+
+            if (!data.clienteNome || !data.dataPedido || !data.dataEntrega || !data.materialUsado) {
+                showNotification("Preencha todos os campos obrigatórios (*).", true);
+                return;
+            }
+            if (valorEntrada > valorTotal) {
+                showNotification("O valor de entrada não pode ser maior que o valor total.", true);
+                return;
+            }
+
+            try {
+                if (id) {
+                    const orderRef = doc(db, getOrdersCollectionRef().path, id);
+                    await updateDoc(orderRef, data);
+                    showNotification(`Pedido de ${data.clienteNome} atualizado com sucesso!`);
+                } else {
+                    await addDoc(getOrdersCollectionRef(), { ...data, createdAt: serverTimestamp() });
+                    showNotification(`Novo pedido para ${data.clienteNome} adicionado!`);
+                }
+                closeModal(orderModal, modalContentOrder, orderForm);
+            } catch (error) {
+                console.error("Erro ao salvar pedido:", error);
+                showNotification("Erro ao salvar o pedido no banco de dados.", true);
+            }
+        };
+
+        const openEditModalOrder = (order = null, isDuplicate = false) => {
+            orderForm.reset();
+            document.getElementById('orderId').value = '';
+            currentOrderMaterials = []; 
+            
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('dataPedido').value = today;
+            document.getElementById('dataEntrega').value = today;
+            document.getElementById('status').value = 'Orcamento';
+            
+            // Inputs de valor vazios para melhor usabilidade
+            valorFreteInput.value = ''; 
+            document.getElementById('valorTotal').value = '';
+            document.getElementById('valorEntrada').value = '';
+
+            // NOVO: Valor padrão para pagamento
+            document.getElementById('meioPagamento').value = 'Pix'; 
+
+
+            if (order) {
+                document.getElementById('clienteNome').value = order.clienteNome || '';
+                document.getElementById('endereco').value = order.endereco || '';
+                // Carrega valores, se existirem
+                document.getElementById('valorTotal').value = order.valorTotal || '';
+                // NOVO: Carrega o meio de pagamento
+                document.getElementById('meioPagamento').value = order.meioPagamento || 'Pix'; 
+                document.getElementById('valorEntrada').value = order.valorEntrada || '';
+                document.getElementById('dataPedido').value = order.dataPedido || today;
+                document.getElementById('dataEntrega').value = order.dataEntrega || today;
+                document.getElementById('materialUsado').value = order.materialUsado || '';
+                document.getElementById('observacoes').value = order.observacoes || '';
+                document.getElementById('status').value = order.status || 'Orcamento';
+                
+                valorFreteInput.value = order.valorFrete || '';
+                currentOrderMaterials = order.materiaisUsados ? JSON.parse(JSON.stringify(order.materiaisUsados)) : [];
+                
+                if (isDuplicate) {
+                    modalTitleOrder.textContent = 'Duplicar Pedido';
+                    document.getElementById('orderId').value = '';
+                    document.getElementById('status').value = 'Orcamento';
+                    showNotification(`Pedido de ${order.clienteNome} duplicado. Ajuste a data de entrega.`, false);
+                } else {
+                    modalTitleOrder.textContent = `Editar Pedido: ${order.clienteNome}`;
+                    document.getElementById('orderId').value = order.id;
+                }
+            } else {
+                modalTitleOrder.textContent = 'Novo Pedido';
+            }
+            
+            updateMaterialSelector();
+            updateMaterialDisplay();
+            openModal(orderModal, modalContentOrder);
+        };
+        
+        // --- Funções de Renderização de Pedidos ---
+        
+        const getStatusStyles = (status) => STATUS_MAP[status] || STATUS_MAP['Orcamento'];
+
+        const getUrgencyStyles = (deliveryDateString, status) => {
+            if (status === 'Entregue' || status === 'Cancelado') return { tooltip: 'Serviço Concluído/Cancelado', bg: 'bg-gray-400' };
+            const today = new Date();
+            const deliveryDate = new Date(deliveryDateString + 'T00:00:00'); 
+            const diffDays = Math.ceil((deliveryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+            if (diffDays < 0) return { tooltip: 'PRAZO VENCIDO', bg: 'bg-red-500 animate-pulse' };
+            if (diffDays <= 3) return { tooltip: `Vencendo em ${diffDays} dias`, bg: 'bg-red-500' };
+            if (diffDays <= 7) return { tooltip: `Prazo Próximo (${diffDays} dias)`, bg: 'bg-orange-400' };
+            return { tooltip: `Prazo Longo (${diffDays} dias)`, bg: 'bg-green-500' };
+        };
+        
+        window.toggleDetails = (id) => {
+            const card = document.querySelector(`.order-card[data-id="${id}"]`);
+            const details = document.getElementById(`details-${id}`);
+            const chevron = document.getElementById(`chevron-${id}`);
+            const isExpanded = card.getAttribute('data-expanded') === 'true';
+
+            if (isExpanded) {
+                details.classList.add('hidden');
+                card.setAttribute('data-expanded', 'false');
+                chevron.classList.remove('rotate-180');
+            } else {
+                details.classList.remove('hidden');
+                card.setAttribute('data-expanded', 'true');
+                chevron.classList.add('rotate-180');
+            }
+        };
+        
+        const renderOrders = (orders) => {
+            ordersList.innerHTML = '';
+            
+            // --- Lógica de Filtragem e Busca ---
+            const filterInfo = STATUS_FILTERS_UI.find(f => f.key === currentStatusFilter);
+            const allowedStatuses = filterInfo ? filterInfo.statuses : [];
+            const searchQuery = orderSearchInput.value.toLowerCase().trim();
+
+
+            const filteredAndSearchedOrders = orders.filter(order => {
+                // 1. Filtro por Status
+                if (!allowedStatuses.includes(order.status)) {
+                    return false;
+                }
+                
+                // 2. Filtro por Busca (se houver query)
+                if (searchQuery.length > 0) {
+                    const matchesClient = order.clienteNome?.toLowerCase().includes(searchQuery);
+                    const matchesService = order.materialUsado?.toLowerCase().includes(searchQuery);
+                    if (!matchesClient && !matchesService) {
+                        return false;
+                    }
+                }
+                return true;
+            });
+            
+            if (filteredAndSearchedOrders.length === 0) {
+                emptyStateOrders.classList.remove('hidden');
+                return;
+            }
+            emptyStateOrders.classList.add('hidden');
+
+            filteredAndSearchedOrders.forEach(order => {
+                const urgency = getUrgencyStyles(order.dataEntrega, order.status);
+                const statusInfo = getStatusStyles(order.status);
+                const remainingValue = calculateRemainingValue(order.valorTotal, order.valorEntrada);
+                const custoTotal = (order.custoMateriais || 0) + (order.valorFrete || 0);
+                const lucroEstimado = (order.valorTotal || 0) - custoTotal;
+
+                const materialsSummary = (order.materiaisUsados || []).map(m => 
+                    `<li class="text-xs text-gray-300 truncate" title="${m.mainCategory} / ${m.subCategory}">${m.quantity}x ${m.subCategory} (${m.mainCategory})</li>`
+                ).join('');
+                
+                // Card de Pedido com o tema escuro e layout reestruturado
+                const cardHtml = `
+                    <div 
+                        class="order-card card-bg p-5 rounded-xl shadow-lg border-l-4 border-indigo-500 transition duration-300 cursor-pointer" 
+                        data-id="${order.id}"
+                        data-expanded="false"
+                    >
+                        <!-- RESUMO PRINCIPAL -->
+                        <div class="flex items-center justify-between" onclick="window.toggleDetails('${order.id}')">
+                            <div class="flex items-center space-x-3 min-w-0 flex-grow">
+                                <span class="w-3 h-3 rounded-full ${urgency.bg} shadow-md flex-shrink-0" title="${urgency.tooltip}"></span>
+                                <div class="min-w-0">
+                                    <h3 class="text-lg font-bold text-gray-50 truncate">${order.materialUsado || 'Serviço Sem Título'}</h3>
+                                    <p class="text-xs text-gray-400 truncate mt-0.5">Cliente: ${order.clienteNome}</p>
+                                </div>
+                            </div>
+                            <div class="text-right ml-4 flex-shrink-0 flex items-center space-x-3">
+                                <p class="text-xl font-extrabold text-indigo-400">${formatCurrency(order.valorTotal)}</p>
+                                <svg id="chevron-${order.id}" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-500 transition-transform duration-300" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                        </div>
+
+                        <!-- DETALHES EXPANDIDOS (NOVO LAYOUT LEVE) -->
+                        <div id="details-${order.id}" class="mt-4 pt-4 border-t border-slate-700 hidden expanded-card-details p-4 rounded-lg transition duration-500">
+                            
+                            <!-- Bloco 1: Status e Datas -->
+                            <div class="grid grid-cols-2 gap-4 text-sm mb-4">
+                                <div>
+                                    <p class="font-semibold text-gray-400">Status Atual:</p>
+                                    <span class="inline-flex items-center px-3 py-1 mt-1 rounded-full text-xs font-bold ${statusInfo.color} ${statusInfo.text}">
+                                        <span class="w-2 h-2 mr-1 rounded-full ${statusInfo.dot} border border-opacity-30 border-current"></span>
+                                        ${statusInfo.label}
+                                    </span>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-gray-400">Data de Entrega:</p>
+                                    <p class="font-extrabold text-red-400 mt-0.5">${formatDate(order.dataEntrega)}</p>
+                                </div>
+                            </div>
+
+                            <hr class="border-slate-700">
+
+                            <!-- Bloco 2: Resumo Financeiro (4 colunas) -->
+                            <div class="pt-4 pb-2">
+                                <h4 class="text-sm font-bold text-indigo-400 mb-2">Resumo de Custos e Venda</h4>
+                                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                                    <div class="pb-1"><p class="text-gray-400">Custo Material:</p><p class="font-bold text-red-400">${formatCurrency(order.custoMateriais || 0)}</p></div>
+                                    <div class="pb-1"><p class="text-gray-400">Frete:</p><p class="font-bold text-red-400">${formatCurrency(order.valorFrete || 0)}</p></div>
+                                    <div class="pb-1"><p class="text-gray-400">Custo Total:</p><p class="font-bold text-red-400">${formatCurrency(custoTotal)}</p></div>
+                                    <div class="pb-1"><p class="text-gray-400">Venda Total:</p><p class="font-bold text-indigo-400">${formatCurrency(order.valorTotal)}</p></div>
+                                </div>
+                                
+                                <hr class="border-slate-700 my-2">
+
+                                <div class="grid grid-cols-3 gap-4 text-sm">
+                                    <div><p class="text-gray-400">Pagamento:</p><p class="font-bold text-gray-300">${order.meioPagamento || 'N/A'}</p></div>
+                                    <div><p class="text-gray-400">Restante:</p><p class="font-bold text-orange-400">${remainingValue}</p></div>
+                                    <div><p class="text-gray-400">Lucro Estimado:</p><p class="font-extrabold text-green-400">${formatCurrency(lucroEstimado)}</p></div>
+                                </div>
+                            </div>
+                            
+                            <hr class="border-slate-700">
+
+                            <!-- Bloco 3: Detalhes e Itens -->
+                            <div class="space-y-3 pt-4">
+                                <div>
+                                    <p class="font-semibold text-gray-400">Endereço:</p>
+                                    <p class="text-sm text-gray-300">${order.endereco || 'Não informado'}</p>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-gray-400">Itens Usados:</p>
+                                    <ul class="list-disc list-inside space-y-0.5 pl-4 text-sm">
+                                        ${materialsSummary || '<li class="text-sm text-gray-500">Nenhum item listado.</li>'}
+                                    </ul>
+                                </div>
+                                <div>
+                                    <p class="font-semibold text-gray-400">Obs Adicionais:</p>
+                                    <p class="text-sm text-gray-300 whitespace-pre-wrap">${order.observacoes || 'Sem observações.'}</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- BOTÕES DE AÇÃO -->
+                        <div class="flex justify-end space-x-1 mt-4 pt-3 border-t border-slate-700">
+                            <!-- Botão de FINALIZAR RÁPIDO -->
+                            ${order.status === 'Entregue' || order.status === 'Cancelado' 
+                                ? `<span class="text-xs text-gray-500 italic flex-shrink-0 self-center">Status Fixo</span>`
+                                : `<button data-action="quick-status" data-id="${order.id}" data-status="Entregue" class="action-btn bg-green-700 text-white p-2 rounded-full hover:bg-green-600 transition shadow-md" title="Marcar como Finalizado (Entregue) e Enviar ao MEI">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                        </svg>
+                                   </button>`
+                            }
+                            
+                            <!-- Botão de Editar/Mudar Status (Abrir Modal) -->
+                            <button data-action="edit" data-id="${order.id}" class="action-btn text-indigo-400 hover:text-indigo-200 p-2 rounded-full hover:bg-slate-700 transition" title="Editar Pedido/Mudar Status">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.389-8.389-2.828-2.828z" /></svg>
+                            </button>
+                            <button data-action="duplicate" data-id="${order.id}" class="action-btn text-green-400 hover:text-green-200 p-2 rounded-full hover:bg-slate-700 transition" title="Duplicar Orçamento">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M15 1a1 1 0 00-1 1v1h-3a1 1 0 00-1 1v3H9a1 1 0 00-1 1v3H7a1 1 0 00-1 1v3H5a1 1 0 00-1 1v2a1 1 0 001 1h10a1 1 0 001-1V2a1 1 0 00-1-1zm-1 12H6V6h8v7zM6 5a1 1 0 011-1h1V3a1 1 0 011-1h5a1 1 0 011 1v12a1 1 0 01-1 1H7a1 1 0 01-1-1v-2h2a1 1 0 001-1V9a1 1 0 00-1-1H6V5z"/></svg>
+                            </button>
+                            <button data-action="delete" data-type="order" data-id="${order.id}" data-name="o pedido de ${order.clienteNome}" class="action-btn text-red-400 hover:text-red-200 p-2 rounded-full hover:bg-slate-700 transition" title="Excluir Pedido">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
+                            </button>
+                        </div>
+                    </div>
+                `;
+                ordersList.innerHTML += cardHtml;
+            });
+            
+            document.querySelectorAll('.action-btn').forEach(button => {
+                const action = button.getAttribute('data-action');
+                const id = button.getAttribute('data-id');
+                const type = button.getAttribute('data-type');
+                const name = button.getAttribute('data-name');
+                const newStatus = button.getAttribute('data-status'); 
+                
+                button.addEventListener('click', (e) => {
+                    e.stopPropagation(); 
+                    const order = allOrders.find(o => o.id === id); 
+                    if (!order) return;
+
+                    if (action === 'edit') { openEditModalOrder(order, false); } 
+                    else if (action === 'duplicate') { openEditModalOrder(order, true); } 
+                    else if (action === 'delete') { openDeleteModal(id, name, type); }
+                    else if (action === 'quick-status') { updateOrderStatus(id, newStatus); } 
+                });
+            });
+        };
+
+        // --- Lógica de Exclusão Genérica ---
+
+        const openDeleteModal = (id, itemName, itemType) => {
+            currentDeleteId = id;
+            currentDeleteType = itemType;
+            deleteItemName.textContent = itemName;
+            openModal(deleteModal, deleteModalContent);
+        };
+
+        const deleteItem = async () => {
+            if (!currentDeleteId) return;
+
+            const name = deleteItemName.textContent;
+            try {
+                let collectionRef;
+                if (currentDeleteType === 'order') {
+                    collectionRef = getOrdersCollectionRef();
+                } else if (currentDeleteType === 'material') {
+                    collectionRef = getMaterialsCollectionRef();
+                } else if (currentDeleteType === 'category') {
+                    collectionRef = getCategoriesCollectionRef();
+                    
+                    const dependentItems = allMaterials.filter(m => m.categoryId === currentDeleteId);
+                    if (dependentItems.length > 0) {
+                        showNotification(`Não é possível excluir a categoria. Existem ${dependentItems.length} itens/subcategorias dependentes.`, true);
+                        closeModal(deleteModal, deleteModalContent);
+                        return;
+                    }
+                } else {
+                    return;
+                }
+                
+                const itemRef = doc(db, collectionRef.path, currentDeleteId);
+                await deleteDoc(itemRef);
+                showNotification(`${name} excluído com sucesso.`);
+            } catch (error) {
+                console.error(`Erro ao excluir ${currentDeleteType}:`, error);
+                showNotification(`Erro ao excluir ${currentDeleteType}.`, true);
+            } finally {
+                closeModal(deleteModal, deleteModalContent);
+                currentDeleteId = null;
+                currentDeleteType = null;
+            }
+        };
+
+
+        // --- Configuração de Event Listeners ---
+        
+        tabOrders.addEventListener('click', () => switchTab('orders'));
+        tabMaterials.addEventListener('click', () => switchTab('materials'));
+        tabFinance.addEventListener('click', () => switchTab('finance'));
+
+        // Listener de Busca
+        orderSearchInput.addEventListener('input', () => renderOrders(allOrders));
+
+        document.getElementById('addOrderButton').addEventListener('click', () => openEditModalOrder(null, false));
+        document.getElementById('closeModalOrderButton').addEventListener('click', (e) => {
+            e.preventDefault();
+            closeModal(orderModal, modalContentOrder, orderForm);
+        });
+        orderModal.addEventListener('click', (e) => {
+            if (e.target === orderModal) closeModal(orderModal, modalContentOrder, orderForm);
+        });
+        orderForm.addEventListener('submit', saveOrder);
+        
+        valorFreteInput.addEventListener('input', calculateOrderCosts);
+        document.getElementById('addMaterialToOrderButton').addEventListener('click', addMaterialToOrder);
+        
+        document.getElementById('addMaterialButton').addEventListener('click', () => openEditModalMaterial(null));
+        document.getElementById('closeModalMaterialButton').addEventListener('click', (e) => {
+            e.preventDefault();
+            closeModal(materialModal, modalContentMaterial, materialForm);
+        });
+        materialModal.addEventListener('click', (e) => {
+            if (e.target === materialModal) closeModal(materialModal, modalContentMaterial, materialForm);
+        });
+        materialForm.addEventListener('submit', saveMaterial);
+
+        document.getElementById('addCategoryButton').addEventListener('click', () => openEditModalCategory(null));
+        document.getElementById('closeModalCategoryButton').addEventListener('click', (e) => {
+            e.preventDefault();
+            closeModal(categoryModal, modalContentCategory, categoryForm);
+        });
+        categoryModal.addEventListener('click', (e) => {
+            if (e.target === categoryModal) closeModal(categoryModal, modalContentCategory, categoryForm);
+        });
+        categoryForm.addEventListener('submit', saveCategory);
+
+        document.getElementById('cancelDeleteButton').addEventListener('click', () => closeModal(deleteModal, deleteModalContent));
+        deleteModal.addEventListener('click', (e) => {
+            if (e.target === deleteModal) closeModal(deleteModal, deleteModalContent);
+        });
+        document.getElementById('confirmDeleteButton').addEventListener('click', deleteItem);
+        
+        window.onload = () => {
+            initializeFirebase();
+            switchTab('orders'); 
+        }
+
+    </script>
+</body>
+</html>
+
