@@ -421,7 +421,7 @@
             <h3 class="text-xl font-bold text-white mb-2 text-center">Pedido Finalizado! (Entregue)</h3>
             <p class="text-sm text-gray-300 mb-6 text-center">Este pedido foi marcado como **Entregue**. Você deseja **enviar a transação** (venda e custos) para o App MEI?</p>
             
-            <p id="meiSummary" class="text-xs bg-slate-700 p-3 rounded-lg text-gray-400 mb-6 font-mono"></p>
+            <p id="meiSummary" class="text-xs bg-slate-700 p-3 rounded-lg text-gray-400 font-mono"></p>
 
             <div class="flex justify-center space-x-4">
                 <button id="saveOnlyButton" class="px-5 py-2 text-sm font-medium text-gray-300 bg-slate-700 rounded-full hover:bg-slate-600 transition duration-150">
@@ -785,7 +785,7 @@
             if (!isAuthReady) return;
             loadingMessage.classList.remove('hidden');
             
-            renderStatusFilters(); 
+            // REMOVIDO: renderStatusFilters() - Será chamado após carregar os pedidos
 
             const qCategories = query(getCategoriesCollectionRef(), orderBy('name', 'asc'));
             onSnapshot(qCategories, (snapshot) => {
@@ -810,6 +810,7 @@
                 allOrders = []; 
                 snapshot.forEach((doc) => { allOrders.push({ id: doc.id, ...doc.data() }); });
                 updateFinanceSummary(allOrders); 
+                updateStatusCountsAndRenderFilters(); // NOVO: Atualiza contagens e filtros
                 renderOrders(allOrders); 
                 loadingMessage.classList.add('hidden');
             }, (error) => { console.error("Erro ao ouvir pedidos:", error); loadingMessage.classList.add('hidden'); showNotification("Erro ao carregar pedidos em tempo real.", true); });
@@ -1053,13 +1054,31 @@
         };
 
 
-        // --- Lógica de Filtro de Status ---
-        const renderStatusFilters = () => {
+        // --- Lógica de Filtro de Status COM CONTADOR (Substitui renderStatusFilters) ---
+        
+        const updateStatusCountsAndRenderFilters = () => {
+            // 1. Calculate Counts
+            const statusCounts = allOrders.reduce((acc, order) => {
+                const status = order.status;
+                
+                STATUS_FILTERS_UI.forEach(filter => {
+                    if (filter.statuses.includes(status)) {
+                        acc[filter.key] = (acc[filter.key] || 0) + 1;
+                    }
+                });
+                return acc;
+            }, {});
+            
+            // 2. Render Filters
             statusFiltersContainer.innerHTML = '';
 
             STATUS_FILTERS_UI.forEach(filter => {
+                const count = statusCounts[filter.key] || 0;
                 const button = document.createElement('button');
-                button.textContent = filter.label;
+                
+                // Adiciona o contador ao texto
+                button.textContent = `${filter.label} (${count})`;
+                
                 button.classList.add('filter-pill', 'transition');
                 button.setAttribute('data-filter', filter.key);
                 
@@ -1076,13 +1095,8 @@
             currentStatusFilter = newStatus;
             localStorage.setItem('orderStatusFilter', newStatus); 
             
-            // Atualiza o estilo dos botões
-            document.querySelectorAll('.filter-pill').forEach(btn => {
-                btn.classList.remove('filter-active');
-                if (btn.getAttribute('data-filter') === newStatus) {
-                    btn.classList.add('filter-active');
-                }
-            });
+            // Atualiza o estilo dos botões e a contagem imediatamente
+            updateStatusCountsAndRenderFilters();
 
             renderOrders(allOrders); 
         };
