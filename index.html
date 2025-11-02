@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestão de Serviços e Custos - Serralheria</title>
-    <!-- Configurações PWA -->
+    <!-- Configurações PWA (NOVO) -->
     <meta name="theme-color" content="#6366f1"/>
     <link rel="manifest" href="manifest.json">
     
@@ -118,11 +118,9 @@
         
         <!-- Navegação por Abas (Tabs) -->
         <nav class="flex space-x-6 mb-8 border-b border-slate-700">
-            <!-- Contador apenas na aba de Pedidos/Serviços -->
             <button id="tabOrders" class="tab-button py-3 px-1 text-gray-300 hover:text-indigo-400 transition duration-150 tab-active" data-tab="orders">
-                Serviços/Pedidos <span id="orderCount" class="ml-2 px-2 py-0.5 rounded-full bg-indigo-600 text-white text-xs font-bold">0</span>
+                Serviços/Pedidos
             </button>
-            <!-- Contadores removidos das outras abas -->
             <button id="tabFinance" class="tab-button py-3 px-1 text-gray-300 hover:text-indigo-400 transition duration-150" data-tab="finance">
                 Análise Financeira
             </button>
@@ -134,13 +132,13 @@
         <!-- Informação de Status e Carregamento -->
         <div id="loadingMessage" class="text-center p-3 mb-4 bg-yellow-900 text-yellow-300 rounded-lg font-medium hidden">Carregando dados em tempo real...</div>
 
-        <!-- Conteúdo da Aba de Pedidos (AGORA COM CONTADORES NOS FILTROS) -->
+        <!-- Conteúdo da Aba de Pedidos (AGORA SEM O RESUMO FINANCEIRO) -->
         <section id="contentOrders">
             
             <!-- Filtro de Status -->
             <div class="mb-6 overflow-x-auto whitespace-nowrap py-2">
                 <div id="statusFilters" class="inline-flex space-x-3 p-1 rounded-full bg-slate-800 shadow-inner">
-                    <!-- Botões injetados via JS (AGORA COM CONTADORES INDIVIDUAIS) -->
+                    <!-- Botões injetados via JS -->
                 </div>
             </div>
 
@@ -168,7 +166,7 @@
             </div>
         </section>
         
-        <!-- Conteúdo da Aba de Análise Financeira -->
+        <!-- Conteúdo da Aba de Análise Financeira (AGORA COM GRÁFICO) -->
         <section id="contentFinance" class="hidden">
              <div class="p-6 card-bg rounded-xl shadow-lg border-t-4 border-indigo-500 mb-6">
                 <h3 class="text-2xl font-bold text-indigo-400 mb-4">Métricas Totais (Todos os Pedidos)</h3>
@@ -543,7 +541,7 @@
         import { 
             getFirestore, collection, onSnapshot, doc, 
             addDoc, updateDoc, deleteDoc, query, orderBy, 
-            serverTimestamp, setLogLevel, enablePersistence 
+            serverTimestamp, setLogLevel
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
         // --- Configuração de Log ---
@@ -551,6 +549,7 @@
 
         // =================================================================
         // CONFIGURAÇÕES DO FIREBASE (FIXO PARA DEPLOY)
+        // Ambos os Apps (Serralheria e MEI) usam o mesmo projeto: vitrine-913c6
         // =================================================================
         
         // Configuração do App SERRALHERIA (Principal)
@@ -614,10 +613,7 @@
         const userIdDisplay = document.getElementById('userIdDisplay');
         const loadingMessage = document.getElementById('loadingMessage');
         const notification = document.getElementById('notification');
-        // --- Contadores (DOM) ---
-        const orderCountDisplay = document.getElementById('orderCount');
-        // Os contadores de financeiro e materiais foram removidos do HTML.
-        
+        // ... (Outras constantes de DOM)
         const tabOrders = document.getElementById('tabOrders');
         const tabMaterials = document.getElementById('tabMaterials');
         const tabFinance = document.getElementById('tabFinance');
@@ -755,24 +751,6 @@
                 db = getFirestore(app);
                 auth = getAuth(app);
                 
-                // Habilita a persistência offline do Firestore (mantido)
-                try {
-                    await enablePersistence(db, { synchronizeTabs: true }); 
-                    console.log("Firestore persistence enabled successfully!");
-                    showNotification("Sincronização offline ativada!");
-                } catch (err) {
-                    if (err.code === 'failed-precondition') {
-                        console.warn("Firestore persistence failed: Multiple tabs open or browser doesn't support it.");
-                        showNotification("Aviso: Falha ao ativar o modo offline (multiplas abas ou cache não suportado).", true);
-                    } else if (err.code === 'unimplemented') {
-                        console.warn("Firestore persistence failed: Browser doesn't support the requested persistence type.");
-                        showNotification("Aviso: O seu navegador não suporta o modo offline do Firestore.", true);
-                    } else {
-                        console.error("Error enabling persistence:", err);
-                        showNotification("Erro ao tentar ativar o modo offline.", true);
-                    }
-                }
-                
                 // 2. Inicializa o App MEI (Secundário) - Usa a mesma configuração, mas com nome diferente
                 const meiAppInstance = apps.find(app => app.name === 'meiApp');
                 if (!meiAppInstance) {
@@ -803,18 +781,11 @@
             }
         };
 
-        // --- Lógica dos Contadores Globais (Agora só atualiza os dados em memória) ---
-        const updateGlobalCounters = () => {
-            // Não atualiza mais elementos do DOM, pois eles foram removidos do Financeiro e Materiais.
-            // Apenas garante que os dados de materiais estão prontos, o que já ocorre nos listeners.
-            // O contador de Pedidos é atualizado em renderOrders, que tem a lógica de filtro.
-        }
-
         const setupListeners = () => {
             if (!isAuthReady) return;
             loadingMessage.classList.remove('hidden');
             
-            // Não precisa de renderStatusFilters aqui, pois será chamado por renderOrders (abaixo)
+            renderStatusFilters(); 
 
             const qCategories = query(getCategoriesCollectionRef(), orderBy('name', 'asc'));
             onSnapshot(qCategories, (snapshot) => {
@@ -832,7 +803,6 @@
                 snapshot.forEach((doc) => { allMaterials.push({ id: doc.id, ...doc.data() }); });
                 renderMaterials(allMaterials);
                 updateMaterialSelector(); 
-                // updateGlobalCounters(); // Não necessário, materiaisCountDisplay foi removido
             }, (error) => { console.error("Erro ao ouvir materiais:", error); showNotification("Erro ao carregar itens de custo.", true); });
             
             const qOrders = query(getOrdersCollectionRef(), orderBy('dataEntrega', 'asc'));
@@ -841,7 +811,6 @@
                 snapshot.forEach((doc) => { allOrders.push({ id: doc.id, ...doc.data() }); });
                 updateFinanceSummary(allOrders); 
                 renderOrders(allOrders); 
-                // updateGlobalCounters(); // Não necessário, financeCountDisplay foi removido
                 loadingMessage.classList.add('hidden');
             }, (error) => { console.error("Erro ao ouvir pedidos:", error); loadingMessage.classList.add('hidden'); showNotification("Erro ao carregar pedidos em tempo real.", true); });
         };
@@ -870,7 +839,6 @@
             };
 
             try {
-                // Esta chamada também é enfileirada para sincronização offline
                 await addDoc(getMeiFaturamentoCollectionRef(), { 
                     ...meiFaturamentoData, 
                     createdAt: serverTimestamp() 
@@ -929,7 +897,6 @@
             };
 
             try {
-                // Esta chamada também é enfileirada para sincronização offline
                 await addDoc(getMeiDespesasCollectionRef(), { 
                     ...meiDespesaData, 
                     createdAt: serverTimestamp() 
@@ -1086,17 +1053,13 @@
         };
 
 
-        // --- Lógica de Filtro de Status com Contadores ---
-        
-        // renderStatusFilters agora aceita os contadores calculados
-        const renderStatusFilters = (counts = {}) => {
+        // --- Lógica de Filtro de Status ---
+        const renderStatusFilters = () => {
             statusFiltersContainer.innerHTML = '';
 
             STATUS_FILTERS_UI.forEach(filter => {
-                const count = counts[filter.key] !== undefined ? counts[filter.key] : 0;
                 const button = document.createElement('button');
-                // Adiciona o contador ao texto do botão de filtro
-                button.textContent = `${filter.label} (${count})`;
+                button.textContent = filter.label;
                 button.classList.add('filter-pill', 'transition');
                 button.setAttribute('data-filter', filter.key);
                 
@@ -1113,7 +1076,14 @@
             currentStatusFilter = newStatus;
             localStorage.setItem('orderStatusFilter', newStatus); 
             
-            // Re-renderiza a lista de pedidos, que por sua vez, re-renderiza os filtros com a nova seleção
+            // Atualiza o estilo dos botões
+            document.querySelectorAll('.filter-pill').forEach(btn => {
+                btn.classList.remove('filter-active');
+                if (btn.getAttribute('data-filter') === newStatus) {
+                    btn.classList.add('filter-active');
+                }
+            });
+
             renderOrders(allOrders); 
         };
 
@@ -1607,28 +1577,24 @@
             try {
                 if (id) {
                     const orderRef = doc(db, getOrdersCollectionRef().path, id);
-                    // A escrita é enfileirada, permitindo o modo offline
-                    await updateDoc(orderRef, orderData); 
-                    showNotification(`Pedido de ${orderData.clienteNome} atualizado com sucesso (Sincronizando se online)!`);
+                    await updateDoc(orderRef, orderData);
+                    showNotification(`Pedido de ${orderData.clienteNome} atualizado com sucesso!`);
                 } else {
                     const docRef = await addDoc(getOrdersCollectionRef(), { ...orderData, createdAt: serverTimestamp() });
                     orderData.id = docRef.id; // Garante que o ID existe para o MEI
-                    // A escrita é enfileirada, permitindo o modo offline
-                    showNotification(`Novo pedido para ${orderData.clienteNome} adicionado (Sincronizando se online)!`);
+                    showNotification(`Novo pedido para ${orderData.clienteNome} adicionado!`);
                 }
 
                 // Integração MEI (somente se solicitado)
                 if (integrateMei && orderData.status === 'Entregue') {
-                    // Nota: As chamadas MEI também serão enfileiradas se offline
                     await sendOrderToMeiFirestore(orderData); 
                     await sendExpenseToMeiFirestore(orderData); 
                 }
                 
                 closeModal(orderModal, modalContentOrder, orderForm);
             } catch (error) {
-                // Com persistência, este erro só deve ocorrer por regras de segurança ou falhas locais
                 console.error("Erro ao salvar pedido:", error);
-                showNotification("Erro ao salvar o pedido no banco de dados. Verifique o console.", true);
+                showNotification("Erro ao salvar o pedido no banco de dados.", true);
             }
         };
 
@@ -1817,16 +1783,7 @@
             const allowedStatuses = filterInfo ? filterInfo.statuses : [];
             const searchQuery = orderSearchInput.value.toLowerCase().trim();
 
-            // 1. Calcula a contagem de pedidos para CADA FILTRO antes de filtrar a lista principal
-            const filterCounts = {};
-            STATUS_FILTERS_UI.forEach(filter => {
-                filterCounts[filter.key] = orders.filter(order => filter.statuses.includes(order.status)).length;
-            });
-            // Re-renderiza os botões de filtro com as contagens
-            renderStatusFilters(filterCounts);
 
-
-            // 2. Filtra a lista de pedidos a ser exibida
             const filteredAndSearchedOrders = orders.filter(order => {
                 if (!allowedStatuses.includes(order.status)) { return false; }
                 if (searchQuery.length > 0) {
@@ -1837,9 +1794,6 @@
                 return true;
             });
             
-            // 3. ATUALIZAÇÃO DO CONTADOR DA ABA DE PEDIDOS (Total de itens visíveis)
-            orderCountDisplay.textContent = filteredAndSearchedOrders.length;
-
             if (filteredAndSearchedOrders.length === 0) {
                 emptyStateOrders.classList.remove('hidden');
                 return;
@@ -2026,7 +1980,6 @@
                 }
                 
                 const itemRef = doc(db, collectionRef.path, currentDeleteId);
-                // A exclusão também é enfileirada para sincronização offline
                 await deleteDoc(itemRef);
                 showNotification(`${name} excluído com sucesso.`);
             } catch (error) {
@@ -2119,7 +2072,7 @@
         });
         document.getElementById('confirmDeleteButton').addEventListener('click', deleteItem);
         
-        // --- PWA SERVICE WORKER REGISTRATION ---
+        // --- PWA SERVICE WORKER REGISTRATION (NOVO) ---
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
                 // Registra o Service Worker que está no arquivo service-worker.js
