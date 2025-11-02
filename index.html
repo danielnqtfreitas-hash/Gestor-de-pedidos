@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gestão de Serviços e Custos - Serralheria</title>
+    <!-- Configurações PWA (NOVO) -->
+    <meta name="theme-color" content="#6366f1"/>
+    <link rel="manifest" href="manifest.json">
+    
     <!-- Carregamento do Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Configuração do Google Font (Inter) -->
@@ -2067,6 +2071,20 @@
             if (e.target === deleteModal) closeModal(deleteModal, deleteModalContent);
         });
         document.getElementById('confirmDeleteButton').addEventListener('click', deleteItem);
+        
+        // --- PWA SERVICE WORKER REGISTRATION (NOVO) ---
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                // Registra o Service Worker que está no arquivo service-worker.js
+                navigator.serviceWorker.register('./service-worker.js', {scope: './'})
+                    .then(registration => {
+                        console.log('ServiceWorker: Registro bem-sucedido. Escopo:', registration.scope);
+                    })
+                    .catch(error => {
+                        console.error('ServiceWorker: Falha no registro:', error);
+                    });
+            });
+        }
         
         // Chamada direta para iniciar o Firebase após a definição das funções.
         window.onload = () => {
