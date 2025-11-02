@@ -397,10 +397,35 @@
                     <button type="button" id="closeModalOrderButton" class="px-6 py-2 text-sm font-medium text-gray-300 bg-slate-700 rounded-full hover:bg-slate-600 transition duration-150">
                         Cancelar
                     </button>
-                    <button type="submit" form="orderForm" class="px-6 py-2 text-sm font-bold text-white bg-indigo-600 rounded-full hover:bg-indigo-700 shadow-lg transition duration-150 transform hover:scale-[1.02]">
+                    <!-- O SUBMIT será interceptado para checar o status -->
+                    <button type="submit" form="orderForm" id="finalSaveOrderButton" class="px-6 py-2 text-sm font-bold text-white bg-indigo-600 rounded-full hover:bg-indigo-700 shadow-lg transition duration-150 transform hover:scale-[1.02]">
                         Salvar Pedido
                     </button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Modal de CONFIRMAÇÃO MEI (NOVO) -->
+    <div id="meiConfirmModal" class="modal-overlay fixed inset-0 z-50 flex items-center justify-center p-4 hidden">
+        <div class="card-bg rounded-xl shadow-2xl w-full max-w-lg p-6 transform transition-all duration-300 scale-95 opacity-0 border border-slate-700" id="meiConfirmModalContent">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10 mx-auto text-yellow-500 mb-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M8.257 4.54a1.75 1.75 0 013.486 0L14.75 10h-2.25a.75.75 0 00-.75.75v3.5a.75.75 0 00.75.75h2.25a.75.75 0 00.75-.75v-3.5a.75.75 0 00-.75-.75h-2.25V5.75a.75.75 0 00-.75-.75h-3.5a.75.75 0 00-.75.75v2.25H5.25a.75.75 0 00-.75.75v3.5a.75.75 0 00.75.75h2.25v-2.25a.75.75 0 00.75-.75h3.5a.75.75 0 00.75.75v2.25h-2.25a.75.75 0 00-.75.75v3.5a.75.75 0 00.75.75h2.25L8.257 4.54z" clip-rule="evenodd" />
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7.25-5.75a.75.75 0 00-1.5 0v3.5a.75.75 0 001.5 0v-3.5zm-3.5 0a.75.75 0 00-1.5 0v3.5a.75.75 0 001.5 0v-3.5zm-3.5 0a.75.75 0 00-1.5 0v3.5a.75.75 0 001.5 0v-3.5zM10.75 16.25a.75.75 0 00-1.5 0v-3.5a.75.75 0 001.5 0v3.5zm3.5 0a.75.75 0 00-1.5 0v-3.5a.75.75 0 001.5 0v3.5zm-7 0a.75.75 0 00-1.5 0v-3.5a.75.75 0 001.5 0v3.5z" clip-rule="evenodd" />
+            </svg>
+            <h3 class="text-xl font-bold text-white mb-2 text-center">Pedido Finalizado! (Entregue)</h3>
+            <p class="text-sm text-gray-300 mb-6 text-center">Este pedido foi marcado como **Entregue**. Você deseja **enviar a transação** (venda e custos) para o App MEI?</p>
+            
+            <p id="meiSummary" class="text-xs bg-slate-700 p-3 rounded-lg text-gray-400 mb-6 font-mono"></p>
+
+            <div class="flex justify-center space-x-4">
+                <button id="saveOnlyButton" class="px-5 py-2 text-sm font-medium text-gray-300 bg-slate-700 rounded-full hover:bg-slate-600 transition duration-150">
+                    Apenas Salvar Status (Não enviar ao MEI)
+                </button>
+                <button id="saveAndIntegrateButton" class="px-5 py-2 text-sm font-bold text-white bg-green-600 rounded-full hover:bg-green-700 transition duration-150 shadow-lg">
+                    Salvar E ENVIAR AO MEI
+                </button>
             </div>
         </div>
     </div>
@@ -542,12 +567,12 @@
         // =================================================================
         
         // --- Variáveis de Instância do Firebase ---
-        let app; // App Serralheria
-        let db; // Firestore Serralheria
-        let auth; // Auth Serralheria
+        let app; 
+        let db; 
+        let auth; 
         
-        let meiApp; // App MEI
-        let meiDb; // Firestore MEI
+        let meiApp; 
+        let meiDb; 
 
         let userId = null;
         let isAuthReady = false;
@@ -556,7 +581,8 @@
         let allOrders = []; 
         let currentStatusFilter = localStorage.getItem('orderStatusFilter') || 'Abertos'; 
         
-        let profitChartInstance = null; // Instância do Chart.js
+        let profitChartInstance = null; 
+        let currentOrderDataToSave = null; // Armazena os dados do pedido ao abrir o modal MEI
 
         // Definição dos Status para uso em filtros e estilização
         const STATUS_MAP = {
@@ -583,6 +609,7 @@
         const userIdDisplay = document.getElementById('userIdDisplay');
         const loadingMessage = document.getElementById('loadingMessage');
         const notification = document.getElementById('notification');
+        // ... (Outras constantes de DOM)
         const tabOrders = document.getElementById('tabOrders');
         const tabMaterials = document.getElementById('tabMaterials');
         const tabFinance = document.getElementById('tabFinance');
@@ -598,7 +625,6 @@
         const selectedMaterialsList = document.getElementById('selectedMaterialsList');
         const materialSelector = document.getElementById('materialSelector'); 
         
-        // Elementos de Custo e Venda Atualizados
         const valorFreteInput = document.getElementById('valorFrete');
         const custoMaoDeObraInput = document.getElementById('custoMaoDeObra');
         const custoAdicionalInput = document.getElementById('custoAdicional'); 
@@ -624,7 +650,6 @@
         const deleteItemName = document.getElementById('deleteItemName');
         const statusFiltersContainer = document.getElementById('statusFilters'); 
         
-        // Elementos para Busca e Resumo Financeiro
         const orderSearchInput = document.getElementById('orderSearch');
         const totalVendaDisplay = document.getElementById('totalVenda');
         const totalCustoDisplay = document.getElementById('totalCusto');
@@ -632,6 +657,10 @@
         const chartEmptyState = document.getElementById('chartEmptyState');
         const materialSearchInput = document.getElementById('materialSearch'); 
 
+        const meiConfirmModal = document.getElementById('meiConfirmModal');
+        const meiConfirmModalContent = document.getElementById('meiConfirmModalContent');
+        const meiSummary = document.getElementById('meiSummary');
+        
         let currentDeleteId = null;
         let currentDeleteType = null; 
         let currentOrderMaterials = []; 
@@ -1535,38 +1564,38 @@
 
         // --- CRUD DE PEDIDOS (Orders) ---
 
-        const updateOrderStatus = async (orderId, newStatus) => {
+        // Função principal para salvar no Firestore (chamada após a confirmação MEI)
+        const saveOrderToFirestore = async (orderData, integrateMei = false) => {
             if (!isAuthReady) { showNotification("Aguarde a inicialização do sistema.", true); return; }
-            if (!orderId || !newStatus) return;
 
-            const orderRef = doc(db, getOrdersCollectionRef().path, orderId);
+            const id = orderData.id;
+
             try {
-                await updateDoc(orderRef, { status: newStatus });
-                
-                if (newStatus === 'Entregue') {
-                    const orderToFinalize = allOrders.find(o => o.id === orderId) || { id: orderId, status: newStatus };
-                    orderToFinalize.status = newStatus;
+                if (id) {
+                    const orderRef = doc(db, getOrdersCollectionRef().path, id);
+                    await updateDoc(orderRef, orderData);
+                    showNotification(`Pedido de ${orderData.clienteNome} atualizado com sucesso!`);
+                } else {
+                    const docRef = await addDoc(getOrdersCollectionRef(), { ...orderData, createdAt: serverTimestamp() });
+                    orderData.id = docRef.id; // Garante que o ID existe para o MEI
+                    showNotification(`Novo pedido para ${orderData.clienteNome} adicionado!`);
+                }
 
-                    if (orderToFinalize) {
-                        // Recalcula e envia valores ATUALIZADOS para o MEI
-                        const currentOrderData = allOrders.find(o => o.id === orderId);
-                        if (currentOrderData) {
-                             await sendOrderToMeiFirestore(currentOrderData); 
-                             await sendExpenseToMeiFirestore(currentOrderData); 
-                        } else {
-                            console.warn("Dados da ordem não encontrados para finalizar no MEI. Apenas status atualizado.");
-                        }
-                    }
+                // Integração MEI (somente se solicitado)
+                if (integrateMei && orderData.status === 'Entregue') {
+                    await sendOrderToMeiFirestore(orderData); 
+                    await sendExpenseToMeiFirestore(orderData); 
                 }
                 
-                showNotification(`Status do pedido atualizado para: ${STATUS_MAP[newStatus].label}`);
+                closeModal(orderModal, modalContentOrder, orderForm);
             } catch (error) {
-                console.error("Erro ao atualizar status:", error);
-                showNotification("Erro ao atualizar o status no banco de dados.", true);
+                console.error("Erro ao salvar pedido:", error);
+                showNotification("Erro ao salvar o pedido no banco de dados.", true);
             }
         };
 
-        const saveOrder = async (e) => {
+        // Função que intercepta o SUBMIT e checa o status
+        const handleOrderSubmission = async (e) => {
             e.preventDefault();
             
             if (!isAuthReady) { showNotification("Aguarde a inicialização do sistema.", true); return; }
@@ -1575,31 +1604,33 @@
             const valorEntrada = parseFloat(document.getElementById('valorEntrada').value) || 0.00;
             const meioPagamento = document.getElementById('meioPagamento').value;
             
-            // Coleta os valores calculados
             const { frete, materiaisCost, custoMaoDeObra, custoAdicional, custoTotal, valorFinalVenda, valorBruto, desconto } = calculateOrderCosts();
 
-            const data = {
+            const status = document.getElementById('status').value;
+
+            const orderData = {
+                id: id,
                 clienteNome: document.getElementById('clienteNome').value.trim(),
                 endereco: document.getElementById('endereco').value.trim(),
-                valorTotal: valorBruto, // Bruto
-                valorDesconto: desconto, // NOVO
-                valorFinalVenda: valorFinalVenda, // NOVO (Líquido)
+                valorTotal: valorBruto,
+                valorDesconto: desconto,
+                valorFinalVenda: valorFinalVenda,
                 meioPagamento: meioPagamento, 
                 valorEntrada: valorEntrada,
                 dataPedido: document.getElementById('dataPedido').value,
                 dataEntrega: document.getElementById('dataEntrega').value,
                 materialUsado: document.getElementById('materialUsado').value.trim(), 
                 observacoes: document.getElementById('observacoes').value.trim(),
-                status: document.getElementById('status').value,
+                status: status,
                 valorFrete: frete,
-                custoMateriais: materiaisCost, // Custo só de material
+                custoMateriais: materiaisCost,
                 custoMaoDeObra: custoMaoDeObra,
-                custoAdicional: custoAdicional, // NOVO
-                custoTotalFinal: custoTotal, // NOVO (Custo total completo)
+                custoAdicional: custoAdicional,
+                custoTotalFinal: custoTotal,
                 materiaisUsados: currentOrderMaterials,
             };
 
-            if (!data.clienteNome || !data.dataPedido || !data.dataEntrega || !data.materialUsado) {
+            if (!orderData.clienteNome || !orderData.dataPedido || !orderData.dataEntrega || !orderData.materialUsado) {
                 showNotification("Preencha todos os campos obrigatórios (*).", true);
                 return;
             }
@@ -1608,19 +1639,45 @@
                 return;
             }
 
-            try {
-                if (id) {
-                    const orderRef = doc(db, getOrdersCollectionRef().path, id);
-                    await updateDoc(orderRef, data);
-                    showNotification(`Pedido de ${data.clienteNome} atualizado com sucesso!`);
-                } else {
-                    await addDoc(getOrdersCollectionRef(), { ...data, createdAt: serverTimestamp() });
-                    showNotification(`Novo pedido para ${data.clienteNome} adicionado!`);
+            // Se o status for ENTREGUE, abre o modal de confirmação MEI
+            if (status === 'Entregue') {
+                const isExistingOrder = allOrders.some(o => o.id === id) || id === '';
+                const wasAlreadyDelivered = isExistingOrder ? (allOrders.find(o => o.id === id)?.status === 'Entregue') : false;
+
+                // Se for uma atualização de um pedido que JÁ ESTAVA 'Entregue', salva diretamente sem integrar novamente
+                if (wasAlreadyDelivered && id) {
+                    await saveOrderToFirestore(orderData, false); 
+                    return; 
                 }
-                closeModal(orderModal, modalContentOrder, orderForm);
+
+                // Caso contrário (primeira vez como 'Entregue' ou novo pedido 'Entregue'), pede confirmação
+                currentOrderDataToSave = orderData;
+                meiSummary.innerHTML = `
+                    Venda Final: <span class="text-green-400 font-bold">${formatCurrency(orderData.valorFinalVenda)}</span><br>
+                    Custo Total: <span class="text-red-400 font-bold">${formatCurrency(orderData.custoTotalFinal)}</span><br>
+                    Lucro Estimado: <span class="text-indigo-400 font-bold">${formatCurrency(orderData.valorFinalVenda - orderData.custoTotalFinal)}</span>
+                `;
+                
+                openModal(meiConfirmModal, meiConfirmModalContent);
+            } else {
+                // Para qualquer outro status (Orçamento, Produção, etc.), salva diretamente SEM integração
+                await saveOrderToFirestore(orderData, false);
+            }
+        };
+
+
+        const updateOrderStatus = async (orderId, newStatus) => {
+            if (!isAuthReady) { showNotification("Aguarde a inicialização do sistema.", true); return; }
+            if (!orderId || !newStatus) return;
+
+            const orderRef = doc(db, getOrdersCollectionRef().path, orderId);
+            try {
+                // A atualização do status é sempre feita no Firestore. A integração MEI é separada.
+                await updateDoc(orderRef, { status: newStatus });
+                showNotification(`Status do pedido atualizado para: ${STATUS_MAP[newStatus].label}`);
             } catch (error) {
-                console.error("Erro ao salvar pedido:", error);
-                showNotification("Erro ao salvar o pedido no banco de dados.", true);
+                console.error("Erro ao atualizar status:", error);
+                showNotification("Erro ao atualizar o status no banco de dados.", true);
             }
         };
 
@@ -1848,15 +1905,8 @@
 
                         <!-- BOTÕES DE AÇÃO -->
                         <div class="flex justify-end space-x-1 mt-4 pt-3 border-t border-slate-700">
-                            <!-- Botão de FINALIZAR RÁPIDO -->
-                            ${order.status === 'Entregue' || order.status === 'Cancelado' 
-                                ? `<span class="text-xs text-gray-500 italic flex-shrink-0 self-center">Status Fixo</span>`
-                                : `<button data-action="quick-status" data-id="${order.id}" data-status="Entregue" class="action-btn bg-green-700 text-white p-2 rounded-full hover:bg-green-600 transition shadow-md" title="Marcar como Finalizado (Entregue) e Enviar ao MEI">
-                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                                        </svg>
-                                   </button>`
-                            }
+                            <!-- Botão de FINALIZAR RÁPIDO REMOVIDO -->
+                            <span class="text-xs text-gray-500 italic flex-shrink-0 self-center">Ações:</span>
                             
                             <!-- Botão de Editar/Mudar Status (Abrir Modal) -->
                             <button data-action="edit" data-id="${order.id}" class="action-btn text-indigo-400 hover:text-indigo-200 p-2 rounded-full hover:bg-slate-700 transition" title="Editar Pedido/Mudar Status">
@@ -1889,7 +1939,6 @@
                     if (action === 'edit') { openEditModalOrder(order, false); } 
                     else if (action === 'duplicate') { openEditModalOrder(order, true); } 
                     else if (action === 'delete') { openDeleteModal(id, name, type); }
-                    else if (action === 'quick-status') { updateOrderStatus(id, newStatus); } 
                 });
             });
         };
@@ -1949,7 +1998,7 @@
         // Listener de Busca (Pedidos)
         orderSearchInput.addEventListener('input', () => renderOrders(allOrders));
         
-        // NOVO: Listener de Busca (Materiais)
+        // Listener de Busca (Materiais)
         materialSearchInput.addEventListener('input', () => renderMaterials(allMaterials));
 
 
@@ -1961,8 +2010,36 @@
         orderModal.addEventListener('click', (e) => {
             if (e.target === orderModal) closeModal(orderModal, modalContentOrder, orderForm);
         });
-        orderForm.addEventListener('submit', saveOrder);
+        // Intercepta o submit do formulário de pedido
+        orderForm.addEventListener('submit', handleOrderSubmission);
         
+        // Listeners para o Modal de Confirmação MEI
+        document.getElementById('saveOnlyButton').addEventListener('click', () => {
+            closeModal(meiConfirmModal, meiConfirmModalContent);
+            if (currentOrderDataToSave) {
+                saveOrderToFirestore(currentOrderDataToSave, false); // Salva SEM integrar
+                currentOrderDataToSave = null;
+            }
+        });
+        document.getElementById('saveAndIntegrateButton').addEventListener('click', () => {
+            closeModal(meiConfirmModal, meiConfirmModalContent);
+            if (currentOrderDataToSave) {
+                saveOrderToFirestore(currentOrderDataToSave, true); // Salva E integra
+                currentOrderDataToSave = null;
+            }
+        });
+        meiConfirmModal.addEventListener('click', (e) => {
+            if (e.target === meiConfirmModal) {
+                 // Se fechar o modal MEI, o pedido deve ser salvo sem integrar.
+                 closeModal(meiConfirmModal, meiConfirmModalContent);
+                 if (currentOrderDataToSave) {
+                    saveOrderToFirestore(currentOrderDataToSave, false); // Salva SEM integrar
+                    currentOrderDataToSave = null;
+                 }
+            }
+        });
+
+
         document.getElementById('addMaterialToOrderButton').addEventListener('click', addMaterialToOrder);
         
         document.getElementById('addMaterialButton').addEventListener('click', () => openEditModalMaterial(null));
