@@ -1583,36 +1583,48 @@
 
         // --- CRUD DE PEDIDOS (Orders) ---
 
-        // Função principal para salvar no Firestore (chamada após a confirmação MEI)
-        const saveOrderToFirestore = async (orderData, integrateMei = false) => {
+        /**
+         * Salva os dados do pedido no Firestore.
+         * @param {Object} dataToSave - O objeto com os dados do pedido (NÃO deve conter o campo 'id').
+         * @param {string} documentId - O Document ID do Firestore (vazio se for novo, preenchido se for edição).
+         * @param {boolean} integrateMei - Se deve tentar integrar com o App MEI.
+         */
+        const saveOrderToFirestore = async (dataToSave, documentId, integrateMei = false) => {
             if (!isAuthReady) { showNotification("Aguarde a inicialização do sistema.", true); return; }
 
-            const id = orderData.id;
             const finalSaveOrderButton = document.getElementById('finalSaveOrderButton'); 
+            let savedOrderId; // Para armazenar o ID gerado/existente
 
             try {
-                if (id) {
-                    const orderRef = doc(db, getOrdersCollectionRef().path, id);
-                    await updateDoc(orderRef, orderData);
-                    showNotification(`Pedido de ${orderData.clienteNome} atualizado com sucesso!`);
+                if (documentId) {
+                    // EDIÇÃO
+                    const orderRef = doc(db, getOrdersCollectionRef().path, documentId);
+                    await updateDoc(orderRef, dataToSave);
+                    savedOrderId = documentId;
+                    showNotification(`Pedido de ${dataToSave.clienteNome} atualizado com sucesso!`);
                 } else {
-                    const docRef = await addDoc(getOrdersCollectionRef(), { ...orderData, createdAt: serverTimestamp() });
-                    orderData.id = docRef.id; // Garante que o ID existe para o MEI
-                    showNotification(`Novo pedido para ${orderData.clienteNome} adicionado!`);
+                    // NOVO PEDIDO
+                    const docRef = await addDoc(getOrdersCollectionRef(), { ...dataToSave, createdAt: serverTimestamp() });
+                    savedOrderId = docRef.id;
+                    showNotification(`Novo pedido para ${dataToSave.clienteNome} adicionado!`);
                 }
 
+                // Prepara os dados com o ID para a integração MEI
+                const orderDataForIntegration = { ...dataToSave, id: savedOrderId };
+
                 // Integração MEI (somente se solicitado)
-                if (integrateMei && orderData.status === 'Entregue') {
-                    await sendOrderToMeiFirestore(orderData); 
-                    await sendExpenseToMeiFirestore(orderData); 
+                if (integrateMei && orderDataForIntegration.status === 'Entregue') {
+                    await sendOrderToMeiFirestore(orderDataForIntegration); 
+                    await sendExpenseToMeiFirestore(orderDataForIntegration); 
                 }
                 
                 closeModal(orderModal, modalContentOrder, orderForm);
             } catch (error) {
                 console.error("Erro ao salvar pedido:", error);
-                showNotification("Erro ao salvar o pedido no banco de dados.", true);
+                // Feedback mais explícito sobre regras
+                showNotification(`Erro ao salvar o pedido no banco de dados. Verifique as Regras de Segurança.`, true);
             } finally {
-                // Re-habilita o botão em caso de sucesso ou falha (FIX para duplicação)
+                // Re-habilita o botão em caso de sucesso ou falha
                 if (finalSaveOrderButton) finalSaveOrderButton.disabled = false; 
             }
         };
@@ -1622,7 +1634,7 @@
             e.preventDefault();
             
             const finalSaveOrderButton = document.getElementById('finalSaveOrderButton');
-            if (finalSaveOrderButton) finalSaveOrderButton.disabled = true; // Desabilita o botão imediatamente (FIX para duplicação)
+            if (finalSaveOrderButton) finalSaveOrderButton.disabled = true; // Desabilita o botão imediatamente
 
             if (!isAuthReady) { 
                 showNotification("Aguarde a inicialização do sistema.", true); 
@@ -1630,7 +1642,9 @@
                 return; 
             }
 
-            const id = document.getElementById('orderId').value;
+            // O ID do documento (vazio para novo, preenchido para edição)
+            const documentId = document.getElementById('orderId').value; 
+            
             const valorEntrada = parseFloat(document.getElementById('valorEntrada').value) || 0.00;
             const meioPagamento = document.getElementById('meioPagamento').value;
             
@@ -1638,8 +1652,8 @@
 
             const status = document.getElementById('status').value;
 
-            const orderData = {
-                id: id,
+            // Objeto de dados limpos para salvar no Firestore (SEM o Document ID)
+            const dataToSave = {
                 clienteNome: document.getElementById('clienteNome').value.trim(),
                 endereco: document.getElementById('endereco').value.trim(),
                 valorTotal: valorBruto,
@@ -1660,7 +1674,7 @@
                 materiaisUsados: currentOrderMaterials,
             };
 
-            if (!orderData.clienteNome || !orderData.dataPedido || !orderData.dataEntrega || !orderData.materialUsado) {
+            if (!dataToSave.clienteNome || !dataToSave.dataPedido || !dataToSave.dataEntrega || !dataToSave.materialUsado) {
                 showNotification("Preencha todos os campos obrigatórios (*).", true);
                 if (finalSaveOrderButton) finalSaveOrderButton.disabled = false; // Re-habilita
                 return;
@@ -1673,27 +1687,27 @@
 
             // Se o status for ENTREGUE, abre o modal de confirmação MEI
             if (status === 'Entregue') {
-                const isExistingOrder = allOrders.some(o => o.id === id) || id === '';
-                const wasAlreadyDelivered = isExistingOrder ? (allOrders.find(o => o.id === id)?.status === 'Entregue') : false;
+                const isExistingOrder = allOrders.some(o => o.id === documentId) || documentId === '';
+                const wasAlreadyDelivered = isExistingOrder ? (allOrders.find(o => o.id === documentId)?.status === 'Entregue') : false;
 
                 // Se for uma atualização de um pedido que JÁ ESTAVA 'Entregue', salva diretamente sem integrar novamente
-                if (wasAlreadyDelivered && id) {
-                    await saveOrderToFirestore(orderData, false); 
+                if (wasAlreadyDelivered && documentId) {
+                    await saveOrderToFirestore(dataToSave, documentId, false); // Salva sem integrar
                     return; 
                 }
 
-                // Caso contrário (primeira vez como 'Entregue' ou novo pedido 'Entregue'), pede confirmação
-                currentOrderDataToSave = orderData;
+                // Armazena o objeto completo (dados + ID) para salvar depois da confirmação
+                currentOrderDataToSave = { ...dataToSave, id: documentId };
                 meiSummary.innerHTML = `
-                    Venda Final: <span class="text-green-400 font-bold">${formatCurrency(orderData.valorFinalVenda)}</span><br>
-                    Custo Total: <span class="text-red-400 font-bold">${formatCurrency(orderData.custoTotalFinal)}</span><br>
-                    Lucro Estimado: <span class="text-indigo-400 font-bold">${formatCurrency(orderData.valorFinalVenda - orderData.custoTotalFinal)}</span>
+                    Venda Final: <span class="text-green-400 font-bold">${formatCurrency(dataToSave.valorFinalVenda)}</span><br>
+                    Custo Total: <span class="text-red-400 font-bold">${formatCurrency(dataToSave.custoTotalFinal)}</span><br>
+                    Lucro Estimado: <span class="text-indigo-400 font-bold">${formatCurrency(dataToSave.valorFinalVenda - dataToSave.custoTotalFinal)}</span>
                 `;
                 
                 openModal(meiConfirmModal, meiConfirmModalContent);
             } else {
                 // Para qualquer outro status (Orçamento, Produção, etc.), salva diretamente SEM integração
-                await saveOrderToFirestore(orderData, false);
+                await saveOrderToFirestore(dataToSave, documentId, false);
             }
         };
 
@@ -1713,7 +1727,7 @@
             }
         };
 
-        // Função de Edição de Pedido simplificada (REMOVIDA LÓGICA DE DUPLICAR)
+        // Função de Edição de Pedido simplificada
         const openEditModalOrder = (order = null) => { 
             orderForm.reset();
             document.getElementById('orderId').value = '';
@@ -1754,7 +1768,7 @@
                 custoAdicionalInput.value = order.custoAdicional || ''; 
                 currentOrderMaterials = order.materiaisUsados ? JSON.parse(JSON.stringify(order.materiaisUsados)) : [];
                 
-                // Define para edição
+                // Define para edição: CRUCIAL para passar o Document ID
                 modalTitleOrder.textContent = `Editar Pedido: ${order.clienteNome}`;
                 document.getElementById('orderId').value = order.id;
 
@@ -2064,7 +2078,8 @@
         document.getElementById('saveOnlyButton').addEventListener('click', async () => {
             closeModal(meiConfirmModal, meiConfirmModalContent);
             if (currentOrderDataToSave) {
-                await saveOrderToFirestore(currentOrderDataToSave, false); // Salva SEM integrar (saveOrderToFirestore re-habilita o botão)
+                const { id, ...dataToSave } = currentOrderDataToSave; // Extrai o ID e o restante dos dados
+                await saveOrderToFirestore(dataToSave, id, false); // Salva SEM integrar (saveOrderToFirestore re-habilita o botão)
                 currentOrderDataToSave = null;
             } else {
                  if (finalSaveOrderButton) finalSaveOrderButton.disabled = false;
@@ -2073,7 +2088,8 @@
         document.getElementById('saveAndIntegrateButton').addEventListener('click', async () => {
             closeModal(meiConfirmModal, meiConfirmModalContent);
             if (currentOrderDataToSave) {
-                await saveOrderToFirestore(currentOrderDataToSave, true); // Salva E integra (saveOrderToFirestore re-habilita o botão)
+                const { id, ...dataToSave } = currentOrderDataToSave; // Extrai o ID e o restante dos dados
+                await saveOrderToFirestore(dataToSave, id, true); // Salva E integra (saveOrderToFirestore re-habilita o botão)
                 currentOrderDataToSave = null;
             } else {
                  if (finalSaveOrderButton) finalSaveOrderButton.disabled = false;
@@ -2086,9 +2102,10 @@
                  const finalSaveOrderButton = document.getElementById('finalSaveOrderButton');
 
                  if (currentOrderDataToSave) {
+                    const { id, ...dataToSave } = currentOrderDataToSave; // Extrai o ID e o restante dos dados
                     // Tenta salvar o pedido (Entregue, mas sem integração MEI, pois o usuário cancelou o modal)
                     // saveOrderToFirestore cuidará de fechar o modal principal e re-habilitar o botão
-                    saveOrderToFirestore(currentOrderDataToSave, false); 
+                    saveOrderToFirestore(dataToSave, id, false); 
                     currentOrderDataToSave = null;
                  } else {
                      // Se não havia dados para salvar, apenas re-habilita o botão se estiver desabilitado.
